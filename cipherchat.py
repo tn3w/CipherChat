@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import secrets
 import re
 
-VERSION = 1.0
+VERSION = 1.1
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -45,6 +45,7 @@ DOD_PATTERNS = [bytes([0x00] * 100000), bytes([0xFF] * 100000), bytes([0x00] * 1
 
 console = Console()
 
+
 def get_system_architecture() -> Tuple[str, str]:
     "Function to get the correct system information"
 
@@ -63,6 +64,7 @@ def get_system_architecture() -> Tuple[str, str]:
 
     return system, machine
 
+
 SYSTEM, MACHINE = get_system_architecture()
 
 TOR_PATH = {"Windows": f"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe"}.get(SYSTEM, "/usr/bin/tor")
@@ -73,11 +75,13 @@ KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80","keys.gnupg.net", "pool.sks-ke
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
          "The development of Tor has received funding from various government agencies, including the U.S. government, due to its importance in promoting online privacy and security.", "Tor allows websites to operate as hidden services, which are only accessible through the Tor network. This has led to the creation of websites that can't be easily traced or taken down.", "Websites on the Tor network often have addresses ending in '.onion' instead of the usual '.com' or '.org', adding to the uniqueness of the network.", "The strength of the Tor network lies in its thousands of volunteer-run relays worldwide. Users' data is passed through multiple relays, making it extremely difficult for anyone to trace their online activities."]
 
+
 def clear_console():
     "Cleans the console and shows logo"
 
     os.system('cls' if os.name == 'nt' else 'clear')
     print(LOGO)
+
 
 class SecureDelete:
     """
@@ -142,12 +146,14 @@ class SecureDelete:
         except Exception:
             pass
 
+
 if "-a" in ARGUMENTS or "--about" in ARGUMENTS:
     clear_console()
     print(f"Current version: {VERSION}")
     print("CipherChat is used for secure chatting with end to end encryption and anonymous use of the Tor network for sending / receiving messages, it is released under the GPL v3 on Github. Setting up and using secure chat servers is made easy.")
     print("Use `python cipherchat.py -h` if you want to know all commands. To start use `python cipherchat.py`.")
     exit(0)
+
 
 if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     clear_console()
@@ -159,6 +165,7 @@ if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     console.log("[green]Completed, all files are irrevocably deleted.","(took", end_time - start_time, "s)")
     exit(0)
 
+
 if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
     clear_console()
     print("> To start the client, simply do not use any arguments.")
@@ -167,6 +174,7 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
     print("-k, --killswitch            Immediately deletes all data in the data Dir and thus all persistent user data")
     print("-t, --torhiddenservice      Launches a CipherChat Tor Hidden Service")
     exit(0)
+
 
 class Tor:
     """
@@ -292,6 +300,7 @@ class Tor:
 
         return new_session
 
+
 def download_file(url, to, name):
     progress = Progress()
 
@@ -314,7 +323,10 @@ def download_file(url, to, name):
 
                         progress.update(task, completed=percent_complete + 1)
 
+
 clear_console()
+
+# Install The Onion Router
 if os.path.isfile(TOR_PATH):
     console.log("[green]The Onion Router exists")
 else:
@@ -374,8 +386,10 @@ else:
         with console.status("[bold green]Cleaning up..."):
             SecureDelete.directory(TEMP_DIR_PATH)
 
+
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     pass
+
 
 # Use Persistent Storage?
 PERSISTENT_STORAGE_CONF_PATH = os.path.join(
@@ -407,6 +421,7 @@ if not USE_PERSISTENT_STORAGE and not os.path.isfile(PERSISTENT_STORAGE_CONF_PAT
         os.mkdir(NEEDED_DIR_PATH)
 
     open(PERSISTENT_STORAGE_CONF_PATH, "x")
+
 
 class SymmetricEncryption:
     """
@@ -481,6 +496,7 @@ class SymmetricEncryption:
 
         return plaintext.decode()
 
+
 def get_password_strength(password: str) -> int:
     """
     Function to get a password strength from 0 (bad) to 100% (good)
@@ -525,6 +541,7 @@ def generate_random_string(length: int, with_punctuation: bool = True, with_lett
 
     random_string = ''.join(secrets.choice(characters) for _ in range(length))
     return random_string
+
 
 # Set a master password if Persistent Storage is enabled
 if USE_PERSISTENT_STORAGE:
@@ -631,8 +648,10 @@ if USE_PERSISTENT_STORAGE:
         with console.status("[bold green]Decrypting the Secret Key..."):
             SECRET_KEY = SymmetricEncryption( master_password).decrypt(crypted_secret_key)
 
+
 clear_console()
 
+# Check and start The Onion Router Daemon
 is_alive = False
 with console.status("[bold green]Getting whether Tor Daemon is alive..."):
     try:
@@ -643,6 +662,7 @@ with console.status("[bold green]Getting whether Tor Daemon is alive..."):
 if not is_alive:
     with console.status("[bold green]Try to start the Tor Daemon..."):
         Tor.start_tor_daemon()
+
 
 def shorten_text(text: str, length: int) -> str:
     """
@@ -655,6 +675,7 @@ def shorten_text(text: str, length: int) -> str:
     if len(text) > length:
         text = text[:length] + "..."
     return text
+
 
 # Getting the chat server
 while True:
