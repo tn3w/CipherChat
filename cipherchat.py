@@ -39,6 +39,7 @@ NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
 DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
 KEY_FILE_PATH_CONF_PATH = os.path.join(DATA_DIR_PATH, "keyfile-path.conf")
+PERSISTENT_STORAGE_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "persistent-storage.conf")
 
 GUTMANN_PATTERNS = [bytes([i % 256] * 100000) for i in range(35)]
 DOD_PATTERNS = [bytes([0x00] * 100000), bytes([0xFF] * 100000), bytes([0x00] * 100000)]
@@ -392,8 +393,6 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
 
 # Use Persistent Storage?
-PERSISTENT_STORAGE_CONF_PATH = os.path.join(
-    NEEDED_DIR_PATH, "persistent-storage.conf")
 if not os.path.isfile(PERSISTENT_STORAGE_CONF_PATH) and not os.path.isdir(DATA_DIR_PATH):
     while True:
         clear_console()
@@ -618,7 +617,6 @@ if USE_PERSISTENT_STORAGE:
                 break
 
         # Create Key File Path Configuration File
-        
         if not os.path.isdir(DATA_DIR_PATH):
             os.mkdir(DATA_DIR_PATH)
 
