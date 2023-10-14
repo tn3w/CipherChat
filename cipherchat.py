@@ -26,7 +26,7 @@ import json
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
 
 
-VERSION = 1.3
+VERSION = 1.4
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -89,14 +89,13 @@ def clear_console():
 
 
 class SecureDelete:
-    """
-    Class for secure deletion of files or folders
-    """
+    "Class for secure deletion of files or folders"
 
     @staticmethod
     def file(file_path: str) -> None:
         """
         Function to securely delete a file by replacing it first with random characters and then according to Gutmann patterns and DoD 5220.22-M patterns
+
         :param file_path: The path to the file
         """
 
@@ -136,6 +135,7 @@ class SecureDelete:
     def directory(directory_path):
         """
         Securely deletes entire folders with files and subfolders
+
         :param directory_path: The path to the directory
         """
 
@@ -182,9 +182,7 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
 
 
 class Tor:
-    """
-    Collection of functions that have something to do with the Tor network
-    """
+    "Collection of functions that have something to do with the Tor network"
 
     def get_download_link():
         "Request https://www.torproject.org to get the latest download links"
@@ -260,9 +258,7 @@ class Tor:
             )
 
     def is_tor_daemon_alive() -> bool:
-        """
-        Function to check if the Tor Daemon is currently running
-        """
+        "Function to check if the Tor Daemon is currently running"
 
         try:
             with control.Controller.from_port(port=9051) as controller:
@@ -279,9 +275,7 @@ class Tor:
         return False
 
     def get_request_session() -> requests.session:
-        """
-        Creates gate connection and returns requests.session
-        """
+        "Creates gate connection and returns requests.session"
 
         def new_tor_signal():
             with control.Controller.from_port(port=9051) as controller:
@@ -306,14 +300,26 @@ class Tor:
         return new_session
 
 
-def download_file(url, to, name):
+def download_file(url: str, save_path: str, operation_name: Optional[str] = None) -> None:
+    """
+    Function to download a file
+
+    :param url: The url of the file
+    :param save_path: Specifies where to save the file
+    :param operation_name: Sets the name of the operation in the console (Optional)
+    """
+
     progress = Progress()
 
     with progress:
-        task = progress.add_task(f"[cyan]Downloading {name}...", total=100)
+        if operation_name:
+            task = progress.add_task(f"[cyan]Downloading {operation_name}...", total=100)
+        else:
+            task = progress.add_task(f"[cyan]Downloading...", total=100)
+
         downloaded_bytes = 0
 
-        with open(to, 'wb') as file:
+        with open(save_path, 'wb') as file:
             response = requests.get(url, stream=True)
 
             if response.status_code == 200:
@@ -427,9 +433,7 @@ if not USE_PERSISTENT_STORAGE and not os.path.isfile(PERSISTENT_STORAGE_CONF_PAT
 
 
 class SymmetricEncryption:
-    """
-    Implementation of symmetric encryption with AES
-    """
+    "Implementation of symmetric encryption with AES"
 
     def __init__(self, password: Optional[str] = None, salt_length: int = 32):
         """
@@ -753,32 +757,9 @@ if USE_PERSISTENT_STORAGE:
         SERVICE_ACCOUNT_NAME = SAVED_SERVICE["name"]
         SERVICE_ACCOUNT_PASSWORD = SAVED_SERVICE["password"]
 
-service_action = None
-
-if SERVICE_ACCOUNT_NAME:
-    service_action = "login"
-
-
-# Get Action, Login or Register?
-while not service_action:
-    clear_console()
-
-    print(f"Connected to `{service_address}`")
-    input_service_action = input("l - Log in or r - Register: ")
-
-    if input_service_action.lower() in ["l", "login", "log in"]:
-        service_action = "login"
-    elif input_service_action.lower() in ["r", "register"]:
-        service_action = "register"
-    else:
-        print("[Error] Incorrect arguments entered.")
-        input("Enter: ")
-
 
 class AsymmetricEncryption:
-    """
-    Implementation of secure asymmetric encryption with RSA
-    """
+    "Implementation of secure asymmetric encryption with RSA"
 
     def __init__(self, public_key: Optional[str] = None, private_key: Optional[str] = None):
         """
@@ -940,16 +921,16 @@ class AsymmetricEncryption:
 
 
 class Hashing:
-    """
-    Implementation of secure hashing with SHA256 and 200000 iterations
-    """
+    "Implementation of secure hashing with SHA256 and 200000 iterations"
 
-    def __init__(self, salt: Optional[str] = None):
+    def __init__(self, salt: Optional[str] = None, without_salt: bool = False):
         """
         :param salt: The salt, makes the hashing process more secure (Optional)
+        :param without_salt: If True, no salt is added to the hash
         """
 
         self.salt = salt
+        self.without_salt = without_salt
 
     def hash(self, plain_text: str, hash_length: int = 32) -> str:
         """
@@ -961,15 +942,18 @@ class Hashing:
 
         plain_text = str(plain_text).encode('utf-8')
 
-        salt = self.salt
-        if salt is None:
-            salt = secrets.token_bytes(32)
+        if not self.without_salt:
+            salt = self.salt
+            if salt is None:
+                salt = secrets.token_bytes(32)
+            else:
+                if not isinstance(salt, bytes):
+                    try:
+                        salt = bytes.fromhex(salt)
+                    except:
+                        salt = salt.encode('utf-8')
         else:
-            if not isinstance(salt, bytes):
-                try:
-                    salt = bytes.fromhex(salt)
-                except:
-                    salt = salt.encode('utf-8')
+            salt = None
 
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -981,7 +965,11 @@ class Hashing:
 
         hashed_data = kdf.derive(plain_text)
 
-        hash = b64encode(hashed_data).decode('utf-8') + "//" + salt.hex()
+        if not self.without_salt:
+            hash = b64encode(hashed_data).decode('utf-8') + "//" + salt.hex()
+        else:
+            hash = b64encode(hashed_data).decode('utf-8')
+
         return hash
 
     def compare(self, plain_text: str, hash: str) -> bool:
@@ -991,18 +979,87 @@ class Hashing:
         :param plain_text: The text that was hashed
         :param hash: The hashed value
         """
+        
+        if not self.without_salt:
+            salt = self.salt
+            if "//" in hash:
+                hash, salt = hash.split("//")
+            
+            if salt is None:
+                raise ValueError("Salt cannot be None if there is no salt in hash")
 
-        salt = self.salt
-        if "//" in hash:
-            hash, salt = hash.split("//")
-
-        if salt is None:
-            raise ValueError("Salt cannot be None if there is no salt in hash")
+            salt = bytes.fromhex(salt)
+        else:
+            salt = None
 
         hash_length = len(b64decode(hash))
 
-        comparison_hash = Hashing(salt=bytes.fromhex(salt)).hash(plain_text, hash_length = hash_length).split("//")[0]
+        comparison_hash = Hashing(salt=salt, without_salt = self.without_salt).hash(plain_text, hash_length = hash_length).split("//")[0]
 
         return comparison_hash == hash
 
- 
+
+class HiddenService:
+    "Functions that have something to do with the hidden service"
+
+    def does_account_name_exist(account_name):
+        """
+        Function to find out if an account already exists at a hidden service
+
+        :param account_name: The name of the account
+        """
+
+        account_name_hash = Hashing(without_salt=True).hash(account_name)
+
+        with console.status("[bold green]Getting Tor Session..."):
+            session = Tor.get_request_session()
+
+        start_time = time()
+        with console.status("[bold green]Requesting Service Address to Lookup Account Name..."):
+            response = session.get("http://" + service_address + "/api/account_name_exist?hash=" + account_name_hash[-5:])
+        end_time = time()
+
+        console.log("[green]Request took", end_time-start_time, "s")
+
+        try:
+            response.raise_for_status()
+            response = response.json()
+        except:
+            return False
+        else:
+            for response_account_name_hash in response:
+                if response_account_name_hash == account_name_hash:
+                    return True
+        return False
+
+
+# Login cycle
+while True:
+    service_action = None
+
+    if SERVICE_ACCOUNT_NAME:
+        service_action = "login"
+
+    # Get Action, Login or Register?
+    while not service_action:
+        clear_console()
+
+        print(f"Connected to `{service_address}`")
+        input_service_action = input("l - Log in or r - Register: ")
+
+        if input_service_action.lower() in ["l", "login", "log in"]:
+            service_action = "login"
+        elif input_service_action.lower() in ["r", "register"]:
+            service_action = "register"
+        else:
+            print("[Error] Incorrect arguments entered.")
+            input("Enter: ")
+    
+    while service_action == "login":
+        clear_console()
+
+        print("*** Log in ***")
+        print(f"Connected to `{service_address}`\n")
+
+        if not SERVICE_ACCOUNT_NAME:
+            SERVICE_ACCOUNT_NAME = input("Please enter your account name: ")
