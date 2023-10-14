@@ -15,14 +15,16 @@ import gnupg
 import subprocess
 import plistlib
 from getpass import getpass
-from base64 import urlsafe_b64encode, urlsafe_b64decode
+from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, padding
+from cryptography.hazmat.primitives import hashes, serialization, padding as sym_padding
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import secrets
 import re
 import json
+from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
+
 
 VERSION = 1.3
 
@@ -73,7 +75,7 @@ SYSTEM, MACHINE = get_system_architecture()
 TOR_PATH = {"Windows": f"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe"}.get(SYSTEM, "/usr/bin/tor")
 TORRC_PATH = {"Windows": f"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
-KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80","keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
+KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
 
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
          "The development of Tor has received funding from various government agencies, including the U.S. government, due to its importance in promoting online privacy and security.", "Tor allows websites to operate as hidden services, which are only accessible through the Tor network. This has led to the creation of websites that can't be easily traced or taken down.", "Websites on the Tor network often have addresses ending in '.onion' instead of the usual '.com' or '.org', adding to the uniqueness of the network.", "The strength of the Tor network lies in its thousands of volunteer-run relays worldwide. Users' data is passed through multiple relays, making it extremely difficult for anyone to trace their online activities."]
@@ -461,7 +463,7 @@ class SymmetricEncryption:
         cipher = Cipher(algorithms.AES(key), modes.CBC(iv),
                         backend=default_backend())
         encryptor = cipher.encryptor()
-        padder = padding.PKCS7(algorithms.AES.block_size).padder()
+        padder = sym_padding.PKCS7(algorithms.AES.block_size).padder()
         padded_data = padder.update(plain_text.encode()) + padder.finalize()
         ciphertext = encryptor.update(padded_data) + encryptor.finalize()
 
@@ -491,7 +493,7 @@ class SymmetricEncryption:
         cipher = Cipher(algorithms.AES(key), modes.CBC(iv),
                         backend=default_backend())
         decryptor = cipher.decryptor()
-        unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+        unpadder = sym_padding.PKCS7(algorithms.AES.block_size).unpadder()
         decrypted_data = decryptor.update(cipher_text) + decryptor.finalize()
         plaintext = unpadder.update(decrypted_data) + unpadder.finalize()
 
@@ -772,3 +774,235 @@ while not service_action:
         print("[Error] Incorrect arguments entered.")
         input("Enter: ")
 
+
+class AsymmetricEncryption:
+    """
+    Implementation of secure asymmetric encryption with RSA
+    """
+
+    def __init__(self, public_key: Optional[str] = None, private_key: Optional[str] = None):
+        """
+        :param public_key: The public key to encrypt a message / to verify a signature
+        :param private_key: The private key to decrypt a message / to create a signature
+        """
+        
+        self.public_key, self.private_key = public_key, private_key
+
+        if not public_key is None:
+            self.publ_key = serialization.load_der_public_key(b64decode(public_key), backend=default_backend())
+        else:
+            self.publ_key = None
+
+        if not private_key is None:
+            self.priv_key = serialization.load_der_private_key(b64decode(private_key), password=None, backend=default_backend())
+        else:
+            self.priv_key = None
+
+    def generate_keys(self, key_size: int = 2048) -> "AsymmetricEncryption":
+        """
+        Generates private and public key
+
+        :param key_size: The key size of the private key
+        """
+        self.priv_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=key_size,
+            backend=default_backend()
+        )
+        self.private_key = b64encode(self.priv_key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )).decode('utf-8')
+        
+        self.publ_key = self.priv_key.public_key()
+        self.public_key = b64encode(self.publ_key.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )).decode('utf-8')
+
+        return self
+
+    def encrypt(self, plain_text: str) -> Tuple[str, str]:
+        """
+        Encrypt the provided plain_text using asymmetric and symmetric encryption
+
+        :param plain_text: The text to be encrypted
+        """
+
+        if self.publ_key is None:
+            raise ValueError("The public key cannot be None in encode, this error occurs because no public key was specified when initializing the AsymmetricCrypto function and none was generated with generate_keys.")
+
+        symmetric_key = secrets.token_bytes(64)
+
+        cipher_text = SymmetricEncryption(symmetric_key).encrypt(plain_text)
+
+        encrypted_symmetric_key = self.publ_key.encrypt(
+            symmetric_key,
+            asy_padding.OAEP(
+                mgf = asy_padding.MGF1(
+                    algorithm = hashes.SHA256()
+                ),
+                algorithm = hashes.SHA256(),
+                label = None
+            )
+        )
+
+        encrypted_key = b64encode(encrypted_symmetric_key).decode('utf-8')
+        return f"{encrypted_key}//{cipher_text}", b64encode(symmetric_key).decode('utf-8')
+
+    def decrypt(self, cipher_text: str) -> str:
+        """
+        Decrypt the provided cipher_text using asymmetric and symmetric decryption
+
+        :param cipher_text: The encrypted message with the encrypted symmetric key
+        """
+
+        if self.priv_key is None:
+            raise ValueError("The private key cannot be None in decode, this error occurs because no private key was specified when initializing the AsymmetricCrypto function and none was generated with generate_keys.")
+
+        encrypted_key, cipher_text = cipher_text.split("//")[0], cipher_text.split("//")[1]
+        encrypted_symmetric_key = b64decode(encrypted_key.encode('utf-8'))
+
+        symmetric_key = self.priv_key.decrypt(
+            encrypted_symmetric_key, 
+            asy_padding.OAEP(
+                mgf = asy_padding.MGF1(
+                    algorithm=hashes.SHA256()
+                ),
+                algorithm = hashes.SHA256(),
+                label = None
+            )
+        )
+
+        plain_text = SymmetricEncryption(symmetric_key).decrypt(cipher_text)
+
+        return plain_text
+
+    def sign(self, plain_text: Union[str, bytes]) -> str:
+        """
+        Sign the provided plain_text using the private key
+
+        :param plain_text: The text to be signed
+        """
+
+        if self.priv_key is None:
+            raise ValueError("The private key cannot be None in sign, this error occurs because no private key was specified when initializing the AsymmetricCrypto function and none was generated with generate_keys.")
+
+        if isinstance(plain_text, str):
+            plain_text = plain_text.encode()
+
+        signature = self.priv_key.sign(
+            plain_text,
+            asy_padding.PSS(
+                mgf = asy_padding.MGF1(
+                    hashes.SHA256()
+                ),
+                salt_length = asy_padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+
+        return b64encode(signature).decode('utf-8')
+
+    def verify_sign(self, signature: str, plain_text: Union[str, bytes]) -> bool:
+        """
+        Verify the signature of the provided plain_text using the public key
+
+        :param sign_text: The signature of the plain_text with base64 encoding
+        :param plain_text: The text whose signature needs to be verified
+        """
+
+        if self.publ_key is None:
+            raise ValueError("The public key cannot be None in verify_sign, this error occurs because no public key was specified when initializing the AsymmetricCrypto function and none was generated with generate_keys.")
+
+        if isinstance(plain_text, str):
+            plain_text = plain_text.encode()
+
+        signature = b64decode(signature)
+
+        try:
+            self.publ_key.verify(
+                signature,
+                plain_text,
+                asy_padding.PSS(
+                    mgf = asy_padding.MGF1(
+                        hashes.SHA256()
+                    ),
+                    salt_length = asy_padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+
+            return True
+        except Exception:
+            return False
+
+
+class Hashing:
+    """
+    Implementation of secure hashing with SHA256 and 200000 iterations
+    """
+
+    def __init__(self, salt: Optional[str] = None):
+        """
+        :param salt: The salt, makes the hashing process more secure (Optional)
+        """
+
+        self.salt = salt
+
+    def hash(self, plain_text: str, hash_length: int = 32) -> str:
+        """
+        Function to hash a plaintext
+
+        :param plain_text: The text to be hashed
+        :param hash_length: The length of the returned hashed value
+        """
+
+        plain_text = str(plain_text).encode('utf-8')
+
+        salt = self.salt
+        if salt is None:
+            salt = secrets.token_bytes(32)
+        else:
+            if not isinstance(salt, bytes):
+                try:
+                    salt = bytes.fromhex(salt)
+                except:
+                    salt = salt.encode('utf-8')
+
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=hash_length,
+            salt=salt,
+            iterations=200000,
+            backend=default_backend()
+        )
+
+        hashed_data = kdf.derive(plain_text)
+
+        hash = b64encode(hashed_data).decode('utf-8') + "//" + salt.hex()
+        return hash
+
+    def compare(self, plain_text: str, hash: str) -> bool:
+        """
+        Compares a plaintext with a hashed value
+
+        :param plain_text: The text that was hashed
+        :param hash: The hashed value
+        """
+
+        salt = self.salt
+        if "//" in hash:
+            hash, salt = hash.split("//")
+
+        if salt is None:
+            raise ValueError("Salt cannot be None if there is no salt in hash")
+
+        hash_length = len(b64decode(hash))
+
+        comparison_hash = Hashing(salt=bytes.fromhex(salt)).hash(plain_text, hash_length = hash_length).split("//")[0]
+
+        return comparison_hash == hash
+
+ 
