@@ -22,8 +22,9 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import secrets
 import re
+import json
 
-VERSION = 1.1
+VERSION = 1.2
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -40,6 +41,7 @@ DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
 KEY_FILE_PATH_CONF_PATH = os.path.join(DATA_DIR_PATH, "keyfile-path.conf")
 PERSISTENT_STORAGE_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "persistent-storage.conf")
+SERVICES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "services.conf")
 
 GUTMANN_PATTERNS = [bytes([i % 256] * 100000) for i in range(35)]
 DOD_PATTERNS = [bytes([0x00] * 100000), bytes([0xFF] * 100000), bytes([0x00] * 100000)]
@@ -328,7 +330,7 @@ def download_file(url, to, name):
 clear_console()
 
 # Install The Onion Router
-if os.path.isfile(TOR_PATH):
+if False:#os.path.isfile(TOR_PATH):
     console.log("[green]The Onion Router exists")
 else:
     if SYSTEM == "Linux":
@@ -384,12 +386,12 @@ else:
                 subprocess.run(["hdiutil", "detach", mount_point])
         console.log("[green]The Hidden Router Installation Completed")
 
-        with console.status("[bold green]Cleaning up..."):
+        with console.status("[bold green]Cleaning up (This can take up to two minutes)..."):
             SecureDelete.directory(TEMP_DIR_PATH)
 
 
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
-    pass
+    raise Exception 
 
 
 # Use Persistent Storage?
@@ -646,6 +648,7 @@ if USE_PERSISTENT_STORAGE:
         with console.status("[bold green]Decrypting the Secret Key..."):
             SECRET_KEY = SymmetricEncryption( master_password).decrypt(crypted_secret_key)
 
+    PASSKEY = master_password + SECRET_KEY
 
 clear_console()
 
@@ -709,8 +712,7 @@ while True:
             else:
 
                 try:
-                    SERVICE_VERSION = float(response_content.replace(
-                        "Pong! CipherChat Chat Service ", ""))
+                    SERVICE_VERSION = float(response_content.replace("Pong! CipherChat Chat Service ", ""))
                 except Exception as e:
                     print(f"[Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
                     input("Enter:")
@@ -722,3 +724,29 @@ while True:
                 else:
                     SERVICE_ADDRESS = service_address
                     break
+
+
+SAVED_SERVICES = None
+SAVED_SERVICE = None
+SERVICE_ACCOUNT_NAME = None
+SERVICE_ACCOUNT_PASSWORD = None
+
+
+# Check if account name or password is stored and if service already has cache data
+if USE_PERSISTENT_STORAGE:
+    if os.path.isfile(SERVICES_CONF_PATH):
+        with console.status("[bold green]Loading stored data for all services..."):
+            with open(SERVICES_CONF_PATH, "r") as readable_file:
+                crypted_services = readable_file.read()
+        with console.status("[bold green]Decrypting stored data for all services..."):
+            try:
+                SAVED_SERVICES = json.loads(SymmetricEncryption(PASSKEY).decrypt(crypted_services))
+            except Exception as e:
+                print(f"[Error] Error while decrypting the services: '{e}'")
+        if SAVED_SERVICES:
+            if SAVED_SERVICES.get(SERVICE_ADDRESS):
+                SAVED_SERVICE = SAVED_SERVICES.get(SERVICE_ADDRESS)
+    
+    if SAVED_SERVICE:
+        SERVICE_ACCOUNT_NAME = SAVED_SERVICE["name"]
+        SERVICE_ACCOUNT_PASSWORD = SAVED_SERVICE["password"]
