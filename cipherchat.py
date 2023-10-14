@@ -24,7 +24,7 @@ import secrets
 import re
 import json
 
-VERSION = 1.2
+VERSION = 1.3
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -330,7 +330,7 @@ def download_file(url, to, name):
 clear_console()
 
 # Install The Onion Router
-if False:#os.path.isfile(TOR_PATH):
+if os.path.isfile(TOR_PATH):
     console.log("[green]The Onion Router exists")
 else:
     if SYSTEM == "Linux":
@@ -750,3 +750,25 @@ if USE_PERSISTENT_STORAGE:
     if SAVED_SERVICE:
         SERVICE_ACCOUNT_NAME = SAVED_SERVICE["name"]
         SERVICE_ACCOUNT_PASSWORD = SAVED_SERVICE["password"]
+
+service_action = None
+
+if SERVICE_ACCOUNT_NAME:
+    service_action = "login"
+
+
+# Get Action, Login or Register?
+while not service_action:
+    clear_console()
+
+    print(f"Connected to `{service_address}`")
+    input_service_action = input("l - Log in or r - Register: ")
+
+    if input_service_action.lower() in ["l", "login", "log in"]:
+        service_action = "login"
+    elif input_service_action.lower() in ["r", "register"]:
+        service_action = "register"
+    else:
+        print("[Error] Incorrect arguments entered.")
+        input("Enter: ")
+
