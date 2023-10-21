@@ -1,0 +1,5 @@
+rich
+stem
+bs4
+gnupg
+cryptography
