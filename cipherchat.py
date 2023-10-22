@@ -12,7 +12,7 @@ from tools import get_system_architecture, clear_console, is_password_save, get_
     download_file, shorten_text, SecureDelete, Tor, Hashing, SymmetricEncryption, AsymmetricEncryption
 
 
-VERSION = 1.5
+VERSION = 1.6
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -49,13 +49,16 @@ if "-a" in ARGUMENTS or "--about" in ARGUMENTS:
     print("Use `python cipherchat.py -h` if you want to know all commands. To start use `python cipherchat.py`.")
     exit(0)
 
-
 if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     clear_console()
+    delete_all = input("Delete All? [y or n]")
+
+    delete_path = {"n": DATA_DIR_PATH, "no": DATA_DIR_PATH}.get(delete_all.lower(), CURRENT_DIR_PATH)
+
     start_time = time()
     with console.status("[bold green]All files will be overwritten and deleted several times... (This can take several seconds)"):
-        if os.path.isdir(DATA_DIR_PATH):
-            SecureDelete.directory(DATA_DIR_PATH)
+        if os.path.isdir(delete_path):
+            SecureDelete.directory(delete_path)
     end_time = time()
     console.log("[green]Completed, all files are irrevocably deleted.","(took", end_time - start_time, "s)")
     exit(0)
