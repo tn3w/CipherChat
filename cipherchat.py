@@ -13,7 +13,7 @@ from tools import get_system_architecture, clear_console, is_password_save, get_
     download_file, shorten_text, SecureDelete, Tor, Hashing, SymmetricEncryption, AsymmetricEncryption
 
 
-VERSION = 1.7
+VERSION = 1.8
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -84,7 +84,7 @@ clear_console()
 
 # Install The Onion Router
 if os.path.isfile(TOR_PATH):
-    console.log("[green]The Onion Router exists")
+    console.log("[green]~ The Onion Router exists")
 else:
     if SYSTEM == "Linux":
         raise Exception("[Error] The Tor Browser is not installed and cannot be installed by python on Linux, just use your package manager with `tor` as package to install The Onion Router.")
@@ -155,12 +155,26 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
             Tor.kill_tor_daemon()
     
     HIDDEN_DIR = service_setup_info.get("hidden_service_tor", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
+    HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
     HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
     
     with console.status("[bold green]Try to start the Tor Daemon with Service..."):
         Tor.start_tor_service(HIDDEN_DIR, HIDDEN_PORT)
+    
+    clear_console()
+    
+    try:
+        with open(HOSTNAME_PATH, "r") as readable_file:
+            HOSTNAME = readable_file.read()
+    except Exception as e:
+        console.log(f"[red]Error getting Hostname: {e}")
+    else:
+        console.print(f"[blue]TOR Hidden Service:", HOSTNAME)
 
     app = Flask("CipherChat")
+
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.WARNING)
 
     @app.route("/ping")
     def ping():
