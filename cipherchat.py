@@ -14,7 +14,7 @@ from tools import get_system_architecture, clear_console, is_password_save, get_
     download_file, shorten_text, SecureDelete, Tor, Hashing, SymmetricEncryption, AsymmetricEncryption
 
 
-VERSION = 1.8
+VERSION = 1.9
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
     print("CipherChat Version", VERSION)
