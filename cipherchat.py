@@ -27,9 +27,15 @@ CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
 DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
+
+# Service Files
+SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
+DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
+
+# Client Files
 KEY_FILE_PATH_CONF_PATH = os.path.join(DATA_DIR_PATH, "keyfile-path.conf")
 PERSISTENT_STORAGE_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "persistent-storage.conf")
-SERVICES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "services.conf")
+SERVICES_CONF_PATH = os.path.join(DATA_DIR_PATH, "services.conf")
 
 console = Console()
 
@@ -137,7 +143,21 @@ else:
 
 
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
-    raise Exception
+    if os.path.isfile(SERVICE_SETUP_CONF_PATH):
+        with open(SERVICE_SETUP_CONF_PATH, "r") as readable_file:
+            service_setup_info = json.load(readable_file)
+    else:
+        service_setup_info = {}
+
+    if service_setup_info.get("restart_tor", False):
+        if Tor.is_tor_daemon_alive():
+            Tor.kill_tor_daemon()
+    
+    HIDDEN_DIR = service_setup_info.get("hidden_service_tor", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
+    HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
+
+    
+    raise NotImplementedError()
 
 
 # Use Persistent Storage?
