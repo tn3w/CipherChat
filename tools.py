@@ -332,6 +332,25 @@ class Tor:
                     'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
                 },
             )
+            
+    def start_tor_service(hidden_service_dir: str, hidden_service_port: int) -> None:
+        """
+        Starts the Onion Router with Hidden Service Configuration
+
+        :param hidden_service_dir: Directory to the Hidden Service
+        :param hidden_service_port: To which port The Onion Router should listen
+        """
+
+        if not Tor.is_tor_daemon_alive():
+            launch_tor_with_config(
+                tor_cmd=TOR_PATH,
+                config={
+                    'SocksPort': '9050',
+                    'ControlPort': '9051',
+                    'HiddenServiceDir': hidden_service_dir,
+                    'HiddenServicePort': f'80 127.0.0.1:{hidden_service_port}',
+                }
+            )
 
     def is_tor_daemon_alive() -> bool:
         "Function to check if the Tor Daemon is currently running"
