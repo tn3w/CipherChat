@@ -174,7 +174,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     except Exception as e:
         console.log(f"[red]Error getting Hostname: {e}")
     else:
-        console.print(f"[blue]TOR Hidden Service:", HOSTNAME)
+        console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
 
     app = Flask("CipherChat")
 
