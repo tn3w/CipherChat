@@ -3,3 +3,4 @@ stem
 bs4
 gnupg
 cryptography
+flask
