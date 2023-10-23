@@ -312,7 +312,7 @@ class Tor:
             try:
                 for process in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
                     try:
-                        if "tor" in process.info['cmdline']:
+                        if "tor" in process.cmdline():
                             process.terminate()
                     except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                         pass
