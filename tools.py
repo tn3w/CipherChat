@@ -311,47 +311,55 @@ class Tor:
         with console.status("[red]Killing Tor Daemon..."):
             try:
                 for process in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
-                    try:
-                        if "tor" in process.cmdline():
-                            process.terminate()
-                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                        pass
+                    if "tor" in process.cmdline():
+                        process.terminate()
                 console.log("[green]All Tor Daemon processes stopped.")
+            except psutil.AccessDenied as e:
+                console.log(f"[red]Privileg Error: AccessDenied while stopping Tor: {e}")
             except Exception as e:
                 console.log(f"[red]Error stopping Tor Daemon: {e}")
+
+    def get_hidden_service_info() -> (Optional[str], int):
+        "Retrieves hidden service information from a configuration file."
+
+        hidden_dir = None
+        hidden_port = 8080
+
+        if os.path.isfile(SERVICE_SETUP_CONF_PATH):
+            with open(SERVICE_SETUP_CONF_PATH, "r") as readable_file:
+                service_setup_info = json.load(readable_file)
+
+            hidden_dir = service_setup_info.get("hidden_service_dir", None)
+            hidden_port = service_setup_info.get("hidden_service_port", 8080)
+        
+        return hidden_dir, hidden_port
 
     def start_tor_daemon() -> None:
         "Launches The Onion Router Daemom"
 
         if not Tor.is_tor_daemon_alive():
+            config = {
+                'SocksPort': '9050',
+                'ControlPort': '9051',
+                'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
+            } # FIXME: Bridges must be chosen randomly, in some way
+
+            start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH)]
+
+            if any(start_service_criterias):
+                hidden_dir, hidden_port = Tor.get_hidden_service_info()
+                
+                if not hidden_dir and os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH):
+                    hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
+                
+                config['HiddenServiceDir'] = hidden_dir
+                config['HiddenServicePort'] = f'80 127.0.0.1:{hidden_port}'
+
             launch_tor_with_config(
                 tor_cmd=TOR_PATH,
-                config={
-                    'SocksPort': '9050',
-                    'ControlPort': '9051',
-                    'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
-                },
+                config=config
             )
-            
-    def start_tor_service(hidden_service_dir: str, hidden_service_port: int) -> None:
-        """
-        Starts the Onion Router with Hidden Service Configuration
-
-        :param hidden_service_dir: Directory to the Hidden Service
-        :param hidden_service_port: To which port The Onion Router should listen
-        """
-
-        if not Tor.is_tor_daemon_alive():
-            launch_tor_with_config(
-                tor_cmd=TOR_PATH,
-                config={
-                    'SocksPort': '9050',
-                    'ControlPort': '9051',
-                    'HiddenServiceDir': hidden_service_dir,
-                    'HiddenServicePort': f'80 127.0.0.1:{hidden_service_port}',
-                }
-            )
-
+         
     def is_tor_daemon_alive() -> bool:
         "Function to check if the Tor Daemon is currently running"
 
