@@ -159,12 +159,12 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
         if Tor.is_tor_daemon_alive():
             Tor.kill_tor_daemon()
     
-    HIDDEN_DIR = service_setup_info.get("hidden_service_tor", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
+    HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
     HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
     HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
     
     with console.status("[bold green]Try to start the Tor Daemon with Service..."):
-        Tor.start_tor_service(HIDDEN_DIR, HIDDEN_PORT)
+        Tor.start_tor_daemon()
     
     clear_console()
     
@@ -172,7 +172,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
         with open(HOSTNAME_PATH, "r") as readable_file:
             HOSTNAME = readable_file.read()
     except Exception as e:
-        console.log(f"[red]Error getting Hostname: {e}")
+        console.log(f"[red]Error getting Hostname (Maybe the Tor service has not started properly): {e}")
     else:
         console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
 
