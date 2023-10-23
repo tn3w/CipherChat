@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import re
 import gnupg
 import psutil
+import json
 from stem.process import launch_tor_with_config
 from stem import control
 import stem
@@ -31,6 +32,12 @@ Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88
 '''
 
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
+
+CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
+
+SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
+DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
 
 console = Console()
 
