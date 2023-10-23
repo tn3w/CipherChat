@@ -381,7 +381,7 @@ while True:
 
                 if SERVICE_VERSION != VERSION:
                     print("[Error] This service does not have the same version as you" +
-                          f"Service Version: {SERVICE_VERSION}\nYour Version: {VERSION}")
+                          f"\nService Version: {SERVICE_VERSION}\nYour Version: {VERSION}")
                     input("Enter:")
                 else:
                     SERVICE_ADDRESS = service_address
