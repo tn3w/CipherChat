@@ -478,8 +478,10 @@ while not ACCOUNT_CREDS:
                     input("Enter: ")
                 else:
                     SERVICE_ACCOUNT_PASSWORD = input_account_password
+                    break
             else:
                 SERVICE_ACCOUNT_PASSWORD = input_account_password
+                break
 
     if service_action == "login":
         # Authorization with password, then server sends private keys encrypted with password (if Persistent Storage is not enabled), and new encrypted messages
