@@ -12,7 +12,7 @@ from tools import get_system_architecture, clear_console, is_password_save, get_
     download_file, shorten_text, SecureDelete, Tor, Hashing, SymmetricEncryption, AsymmetricEncryption
 
 
-VERSION = 1.6
+VERSION = 1.7
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -149,16 +149,25 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     else:
         service_setup_info = {}
 
-    if service_setup_info.get("restart_tor", False):
+    if service_setup_info.get("restart_tor", True):
         if Tor.is_tor_daemon_alive():
             Tor.kill_tor_daemon()
     
     HIDDEN_DIR = service_setup_info.get("hidden_service_tor", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
     HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
-
     
-    raise NotImplementedError()
+    with console.status("[bold green]Try to start the Tor Daemon with Service..."):
+        Tor.start_tor_service(HIDDEN_DIR, HIDDEN_PORT)
 
+    app = Flask("CipherChat")
+
+    @app.route("/ping")
+    def ping():
+        return "Pong! CipherChat Chat Service " + str(VERSION)
+
+    app.run(host = "localhost", port = HIDDEN_PORT)
+
+    exit()
 
 # Use Persistent Storage?
 if not os.path.isfile(PERSISTENT_STORAGE_CONF_PATH) and not os.path.isdir(DATA_DIR_PATH):
