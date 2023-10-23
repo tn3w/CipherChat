@@ -341,8 +341,12 @@ class Tor:
         
         return hidden_dir, hidden_port
 
-    def start_tor_daemon() -> None:
-        "Launches The Onion Router Daemom"
+    def start_tor_daemon(as_service: bool = False) -> None:
+        """
+        Launches The Onion Router Daemom
+        
+        :param as_service: If True, a hidden service is started with
+        """
 
         if not Tor.is_tor_daemon_alive():
             config = {
@@ -351,12 +355,12 @@ class Tor:
                 'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
             } # FIXME: Bridges must be chosen randomly, in some way
 
-            start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH)]
+            start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
 
             if any(start_service_criterias):
                 hidden_dir, hidden_port = Tor.get_hidden_service_info()
                 
-                if not hidden_dir and os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH):
+                if (not hidden_dir and os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH)) or as_service:
                     hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
                 
                 config['HiddenServiceDir'] = hidden_dir
