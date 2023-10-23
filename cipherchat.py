@@ -164,7 +164,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
     
     with console.status("[bold green]Try to start the Tor Daemon with Service..."):
-        Tor.start_tor_daemon()
+        Tor.start_tor_daemon(as_service=True)
     
     clear_console()
     
