@@ -9,11 +9,16 @@ import secrets
 import re
 import json
 from flask import Flask
+import logging
 from tools import get_system_architecture, clear_console, is_password_save, get_password_strength, generate_random_string,\
     download_file, shorten_text, SecureDelete, Tor, Hashing, SymmetricEncryption, AsymmetricEncryption
 
 
 VERSION = 1.8
+
+if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
+    print("CipherChat Version", VERSION)
+    exit()
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -42,8 +47,8 @@ console = Console()
 
 SYSTEM, MACHINE = get_system_architecture()
 
-TOR_PATH = {"Windows": f"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe"}.get(SYSTEM, "/usr/bin/tor")
-TORRC_PATH = {"Windows": f"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
+TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe"}.get(SYSTEM, "/usr/bin/tor")
+TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
 
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
