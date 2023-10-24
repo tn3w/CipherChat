@@ -63,15 +63,16 @@ if "-a" in ARGUMENTS or "--about" in ARGUMENTS:
 
 if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     clear_console()
-    delete_all = input("Delete All? [y or n] ")
-
-    delete_path = {"n": DATA_DIR_PATH, "no": DATA_DIR_PATH}.get(delete_all.lower(), CURRENT_DIR_PATH)
+    delete_path = {"n": DATA_DIR_PATH, "no": DATA_DIR_PATH}.get(input("Delete All? [y or n] ").lower(), CURRENT_DIR_PATH)
 
     start_time = time()
+
     with console.status("[bold green]All files will be overwritten and deleted several times... (This can take several seconds)"):
         if os.path.isdir(delete_path):
             SecureDelete.directory(delete_path)
+
     end_time = time()
+    
     console.log("[green]Completed, all files are irrevocably deleted.","(took", end_time - start_time, "s)")
     exit(0)
 
