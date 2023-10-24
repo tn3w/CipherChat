@@ -63,7 +63,7 @@ if "-a" in ARGUMENTS or "--about" in ARGUMENTS:
 
 if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     clear_console()
-    delete_all = input("Delete All? [y or n ")
+    delete_all = input("Delete All? [y or n] ")
 
     delete_path = {"n": DATA_DIR_PATH, "no": DATA_DIR_PATH}.get(delete_all.lower(), CURRENT_DIR_PATH)
 
