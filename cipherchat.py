@@ -88,7 +88,9 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
     print("-t, --torhiddenservice      Launches a CipherChat Tor Hidden Service")
     exit(0)
 
+
 clear_console()
+
 
 # Install The Onion Router
 if os.path.isfile(TOR_PATH):
@@ -156,6 +158,7 @@ else:
             SecureDelete.directory(TEMP_DIR_PATH)
 
 
+# Running Tor Hidden Service
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     if os.path.isfile(SERVICE_SETUP_CONF_PATH):
         with open(SERVICE_SETUP_CONF_PATH, "r") as readable_file:
@@ -197,6 +200,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
     exit()
 
+
 # Use Persistent Storage?
 if not os.path.isfile(PERSISTENT_STORAGE_CONF_PATH) and not os.path.isdir(DATA_DIR_PATH):
     while True:
@@ -224,6 +228,7 @@ if not USE_PERSISTENT_STORAGE and not os.path.isfile(PERSISTENT_STORAGE_CONF_PAT
         os.mkdir(NEEDED_DIR_PATH)
 
     open(PERSISTENT_STORAGE_CONF_PATH, "x")
+
 
 # Set a master password if Persistent Storage is enabled
 if USE_PERSISTENT_STORAGE:
@@ -333,7 +338,9 @@ if USE_PERSISTENT_STORAGE:
 
     PASSKEY = master_password + SECRET_KEY
 
+
 clear_console()
+
 
 # Check and start The Onion Router Daemon
 is_alive = False
@@ -420,6 +427,7 @@ if USE_PERSISTENT_STORAGE:
     if SAVED_SERVICE:
         SERVICE_ACCOUNT_NAME = SAVED_SERVICE["name"]
         SERVICE_ACCOUNT_PASSWORD = SAVED_SERVICE["password"]
+
 
 ACCOUNT_CREDS = None
 
