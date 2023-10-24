@@ -3,8 +3,10 @@ import platform
 import threading
 from typing import Tuple, Optional, Union
 import os
+import distro
 import shutil
 import requests
+import subprocess
 from bs4 import BeautifulSoup
 import re
 import gnupg
@@ -33,6 +35,35 @@ Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88
 '''
 
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
+DISTRO_TO_PACKAGE_MANAGER = {
+    "ubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "debian": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "fedora": {"installation_command": "dnf install", "update_command": "dnf upgrade"},
+    "centos": {"installation_command": "yum install", "update_command": "yum update"},
+    "arch": {"installation_command": "pacman -S", "update_command": "pacman -Syu"},
+    "opensuse": {"installation_command": "zypper install", "update_command": "zypper update"},
+    "linuxmint": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "gentoo": {"installation_command": "emerge", "update_command": "emerge --sync"},
+    "rhel": {"installation_command": "yum install", "update_command": "yum update"},
+    "kali": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "tails": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "zorin": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "mx": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "solus": {"installation_command": "eopkg install", "update_command": "eopkg up"},
+    "antergos": {"installation_command": "pacman -S", "update_command": "pacman -Syu"},
+    "lubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    "xubuntu": {"installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+}
+
+PACKAGE_MANAGERS = [
+    {"version_command": "apt-get --version", "installation_command": "apt-get install", "update_command": "apt-get update; apt-get upgrade"},
+    {"version_command": "dnf --version", "installation_command": "dnf install", "update_command": "dnf upgrade"},
+    {"version_command": "yum --version", "installation_command": "yum install", "update_command": "yum update"},
+    {"version_command": "pacman --version", "installation_command": "pacman -S", "update_command": "pacman -Syu"},
+    {"version_command": "zypper --version", "installation_command": "zypper install", "update_command": "zypper update"},
+    {"version_command": "emerge --version", "installation_command": "emerge", "update_command": "emerge --sync"},
+    {"version_command": "eopkg --version", "installation_command": "eopkg install", "update_command": "eopkg up"}
+]
 
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
@@ -65,8 +96,26 @@ def get_system_architecture() -> Tuple[str, str]:
 
 
 SYSTEM, MACHINE = get_system_architecture()
-TOR_PATH = {"Windows": f"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe"}.get(SYSTEM, "/usr/bin/tor")
+TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
 
+
+def get_gnupg_path() -> str:
+    "Function to query the GnuPG path"
+
+    gnupg_path = {"Windows": fr"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe", "macOS": "/usr/local/bin/gpg"}.get(SYSTEM, "/usr/bin/gpg")
+
+    command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
+
+    try:
+        result = subprocess.check_output(command, shell=True, text=True)
+        gnupg_path = result.strip()
+    except:
+        pass
+    
+    return gnupg_path
+
+
+GNUPG_PATH = get_gnupg_path()
 
 def clear_console():
     "Cleans the console and shows logo"
@@ -87,10 +136,6 @@ def download_file(url: str, save_path: str, operation_name: Optional[str] = None
     progress = Progress()
 
     with progress:
-        if operation_name:
-            task = progress.add_task(f"[cyan]Downloading {operation_name}...", total=100)
-        else:
-            task = progress.add_task(f"[cyan]Downloading...", total=100)
 
         downloaded_bytes = 0
 
@@ -100,14 +145,17 @@ def download_file(url: str, save_path: str, operation_name: Optional[str] = None
             if response.status_code == 200:
                 total_length = int(response.headers.get('content-length'))
 
+                if operation_name:
+                    task = progress.add_task(f"[cyan]Downloading {operation_name}...", total=total_length)
+                else:
+                    task = progress.add_task(f"[cyan]Downloading...", total=100)
+
                 for chunk in response.iter_content(chunk_size=1024):
                     if chunk:
                         file.write(chunk)
-
                         downloaded_bytes += len(chunk)
-                        percent_complete = (downloaded_bytes / total_length) * 100
 
-                        progress.update(task, completed=percent_complete + 1)
+                        progress.update(task, completed=downloaded_bytes)
 
 
 def get_password_strength(password: str) -> int:
@@ -291,6 +339,113 @@ class SecureDelete:
         except:
             pass
 
+
+class Linux:
+    "Collection of functions that have something to do with Linux"
+
+    @staticmethod
+    def get_package_manager() -> Tuple[Optional[str], Optional[str]]:
+        "Returns the Packet Manager install command and the update command"
+
+        distro_id = distro.id()
+
+        package_manager = DISTRO_TO_PACKAGE_MANAGER.get(distro_id, {"installation_command": None, "update_command": None})
+
+        installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
+        
+        if None in [installation_command, update_command]:
+            for package_manager in PACKAGE_MANAGERS:
+                try:
+                    subprocess.check_call(package_manager["version_command"], shell=True)
+                except:
+                    pass
+                else:
+                    installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
+        
+        return installation_command, update_command
+    
+    @staticmethod
+    def install_package(package_name: str) -> None:
+        """
+        Attempts to install a Linux package
+        
+        :param package_name: Name of the Linux packet
+        """
+
+        installation_command, update_command = Linux.get_package_manager() # FIXME: Packet Manager should be saved
+
+        if not None in [installation_command, update_command]:
+            try:
+                update_process = subprocess.Popen("sudo " + update_command, shell=True)
+                update_process.wait()
+            except Exception as e:
+                console.log(f"[red]Error using update Command while installing linux package '{package_name}': '{e}'")
+            
+            install_process = subprocess.Popen(f"sudo {installation_command} {package_name}", shell=True)
+            install_process.wait()
+        
+        else:
+            console.log("[red]No packet manager found for the current Linux system, you seem to use a distribution we don't know?")
+            raise Exception("No package manager found!")
+
+        return None
+
+
+class GNUPG:
+    "Collection of functions that have something to do with GNUPG"
+
+    def search_key_name(search: str) -> Optional[str]:
+        """
+        Finds out the KEY Name based on a search term
+        
+        :param search: Search term
+        """
+
+        try:
+            gpg = gnupg.GPG()
+        except RuntimeError as e:
+            if os.path.isfile(GNUPG_PATH):
+                gpg = gnupg.GPG(binary = GNUPG_PATH)
+            else:
+                return None
+
+        search_result = gpg.search_keys(search, keyserver=KEYSERVER_URLS[0])
+
+        if search_result:
+            key = search_result[0]
+            key_name = key['keyid']
+
+            return key_name
+
+        raise Exception("[Error] No keyname found for The Onion Router, the keyname is needed to verify the download file, Download Canceled.")
+    
+    def load_public_keys(key_name: str) -> Optional[gnupg.GPG]:
+        """
+        Creates a PGP instance, and downloads Public Keys
+        
+        :param key_name: The Key Name
+        """
+
+        try:
+            gpg = gnupg.GPG()
+        except:
+            if os.path.isfile(GNUPG_PATH):
+                gpg = gnupg.GPG(binary=GNUPG_PATH)
+            else:
+                return None
+
+        with console.status("[bold green]Loading the Public Keys for The Onion Router..."):
+            for keyserver_url in KEYSERVER_URLS:
+                try:
+                    gpg.recv_keys(keyserver_url, key_name)
+                except TimeoutError:
+                    console.log(f"[red]Failed to download the public key from the KeyServer `{keyserver_url}`")
+                else:
+                    console.log(f"[green]Loaded Key from `{keyserver_url}`")
+
+        return gpg
+
+
 class Tor:
     "Collection of functions that have something to do with the Tor network"
 
@@ -319,41 +474,6 @@ class Tor:
                             download_url = "https://www.torproject.org" + href
         
         return (download_url, signature_url)
-
-    def get_key_name() -> str:
-        "Finds out the KEY Name from the Tor Project"
-
-        gpg = gnupg.GPG()
-
-        search_result = gpg.search_keys("Tor Browser Developers (signing key) <torbrowser@torproject.org>", keyserver=KEYSERVER_URLS[0])
-
-        if search_result:
-            key = search_result[0]
-            key_name = key['keyid']
-
-            return key_name
-
-        raise Exception("[Error] No keyname found for The Onion Router, the keyname is needed to verify the download file, Download Canceled.")
-    
-    def get_public_key(key_name: str) -> gnupg.GPG:
-        """
-        Creates a PGP instance, and downloads Public Keys
-        
-        :param key_name: The Key Name from the Tor project
-        """
-
-        gpg = gnupg.GPG()
-
-        with console.status("[bold green]Loading the Public Keys for The Onion Router..."):
-            for keyserver_url in KEYSERVER_URLS:
-                try:
-                    gpg.recv_keys(keyserver_url, key_name)
-                except TimeoutError:
-                    console.log(f"[red]Failed to download the public key from the KeyServer `{keyserver_url}`")
-                else:
-                    console.log(f"[green]Loaded Key from `{keyserver_url}`")
-
-        return gpg
 
     def kill_tor_daemon() -> None:
         "Stops all running Tor Daemon processes."

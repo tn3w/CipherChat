@@ -11,10 +11,10 @@ import json
 from flask import Flask
 import logging
 from tools import get_system_architecture, clear_console, is_password_save, get_password_strength, generate_random_string,\
-    download_file, shorten_text, SecureDelete, Tor, Hashing, SymmetricEncryption, AsymmetricEncryption
+    download_file, shorten_text, SecureDelete, Tor, GNUPG, Linux, Hashing, SymmetricEncryption, AsymmetricEncryption
 
 
-VERSION = 1.9
+VERSION = 1.10
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
     print("CipherChat Version", VERSION)
@@ -95,7 +95,12 @@ if os.path.isfile(TOR_PATH):
     console.log("[green]~ The Onion Router exists")
 else:
     if SYSTEM == "Linux":
-        raise Exception("[Error] The Tor Browser is not installed and cannot be installed by python on Linux, just use your package manager with `tor` as package to install The Onion Router.")
+        with console.status("[bold green]Try to install Tor via the Console..."):
+            try:
+                Linux.install_package("tor")
+            except Exception as e:
+                console.log(f"[red]TOR could not be installed because of the following error: '{e}'")
+                exit()
     elif SYSTEM in ["Windows", "macOS"]:
         print("Did you know?", secrets.choice(FACTS), "\n")
         with console.status("[bold green]Trying to get the download links for Tor..."):
@@ -116,10 +121,10 @@ else:
         download_file(signature_link, signature_file_path, "Tor Browser Signature")
 
         with console.status("[bold green]Trying to get the PGP Key Name for The Onion Router..."):
-            key_name = Tor.get_key_name()
+            key_name = GNUPG.search_key_name("Tor Browser Developers (signing key) <torbrowser@torproject.org>")
         console.log("[green]~ Key Name received")
         
-        gpg = Tor.get_public_key(key_name)
+        gpg = GNUPG.load_public_keys(key_name)
         console.log("[green]~ Public Keys Loaded")
 
         with console.status("[bold green]Verify The Onion Router Installation File..."):
