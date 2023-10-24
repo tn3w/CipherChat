@@ -188,46 +188,81 @@ def shorten_text(text: str, length: int) -> str:
 class SecureDelete:
     "Class for secure deletion of files or folders"
 
+    def list_files_and_directories(directory_path: str) -> Tuple[list, list]:
+        """
+        Function to get all files and directorys in a directory
+
+        :param directory_path: The path to the directory
+        """
+
+        all_files = []
+        all_directories = []
+
+        def list_files_recursive(root, depth):
+            for item in os.listdir(root):
+                item_path = os.path.join(root, item)
+                if os.path.isfile(item_path):
+                    all_files.append((item_path, depth))
+                elif os.path.isdir(item_path):
+                    all_directories.append((item_path, depth))
+                    list_files_recursive(item_path, depth + 1)
+
+        list_files_recursive(directory_path, 0)
+
+        all_files.sort(key=lambda x: x[1], reverse=True)
+        all_directories.sort(key=lambda x: x[1], reverse=True)
+
+        all_files = [path for path, _ in all_files]
+        all_directories = [path for path, _ in all_directories]
+
+        return all_files, all_directories
+
     @staticmethod
-    def file(file_path: str) -> None:
+    def file(file_path: str, semaphore: Optional[threading.Semaphore] = None) -> None:
         """
         Function to securely delete a file by replacing it first with random characters and then according to Gutmann patterns and DoD 5220.22-M patterns
 
         :param file_path: The path to the file
+        :param semaphore: The Semaphore Object
         """
 
-        if not os.path.isfile(file_path):
-            return
+        if semaphore is None:
+            semaphore = threading.Semaphore()
 
-        file_size = os.path.getsize(file_path)
-        for _ in range(5):
-            try:
-                if os.path.isfile(file_path):
+        with semaphore:
+            if not os.path.isfile(file_path):
+                return
+
+            file_size = os.path.getsize(file_path)
+            for _ in range(5):
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+
+                    with open(file_path, 'wb') as file:
+                        file.write(os.urandom(file_size))
+
                     os.remove(file_path)
 
-                with open(file_path, 'wb') as file:
-                    file.write(os.urandom(file_size))
+                    with open(file_path, 'ab') as file:
+                        file.seek(0, os.SEEK_END)
 
+                        # Gutmann Pattern
+                        for pattern in GUTMANN_PATTERNS:
+                            file.write(pattern)
+
+                        # DoD 5220.22-M Pattern
+                        for pattern in DOD_PATTERNS:
+                            file.write(pattern)
+                except Exception as e:
+                    print("Error:", e)
+                    pass
+
+            try:
                 os.remove(file_path)
-
-                with open(file_path, 'ab') as file:
-                    file.seek(0, os.SEEK_END)
-
-                    # Gutmann Pattern
-                    for pattern in GUTMANN_PATTERNS:
-                        file.write(pattern)
-
-                    # DoD 5220.22-M Pattern
-                    for pattern in DOD_PATTERNS:
-                        file.write(pattern)
             except Exception:
                 pass
-
-        try:
-            os.remove(file_path)
-        except Exception:
-            pass
-
+    
     @staticmethod
     def directory(directory_path):
         """
@@ -236,16 +271,23 @@ class SecureDelete:
         :param directory_path: The path to the directory
         """
 
-        for file_or_dir in os.listdir(directory_path):
-            path = os.path.join(directory_path, file_or_dir)
-            if os.path.isfile(path):
-                SecureDelete.file(path)
-            elif os.path.isdir(path):
-                SecureDelete.directory(path)
+        files, directorys = SecureDelete.list_files_and_directories(directory_path)
+        
+        semaphore = threading.Semaphore(20)
 
+        for file in files:
+            thread = threading.Thread(target=SecureDelete.file, args=(file, semaphore))
+            thread.start()
+        
+        for directory in directorys:
+            try:
+                shutil.rmtree(directory)
+            except:
+                pass
+        
         try:
             shutil.rmtree(directory_path)
-        except Exception:
+        except:
             pass
 
 class Tor:
