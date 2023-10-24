@@ -576,6 +576,7 @@ class Tor:
 
         return new_session
 
+
 class Hashing:
     "Implementation of secure hashing with SHA256 and 200000 iterations"
 
