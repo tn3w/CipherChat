@@ -550,7 +550,7 @@ class Tor:
                     
                     ips = list(set([ip.strip() for ip in ips.split("\n")]))
                     
-                    if not ((len(ips) >= 1610000 and ip_version == "ipv4") or (len(ips) >= 1190000 and ip_version == "ipv6")):
+                    if not len(ips) >= {"ipv4": 1610000}.get(ip_version, 1190000):
                         continue
 
                     snowflake_ips.append(ips)
