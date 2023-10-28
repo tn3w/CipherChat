@@ -769,9 +769,10 @@ class Tor:
         "Creates gate connection and returns requests.session"
 
         def new_tor_signal():
-            with control.Controller.from_port(port=9051) as controller:
-                controller.authenticate()
-                controller.signal(stem.Signal.NEWNYM)
+            if secrets.choice([True, False, False, False, False, False, False, False]):
+                with control.Controller.from_port(port=9051) as controller:
+                    controller.authenticate()
+                    controller.signal(stem.Signal.NEWNYM)
 
         new_session = requests.session()
 

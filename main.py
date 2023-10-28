@@ -383,25 +383,25 @@ while True:
             response_content = response.content.decode("utf-8")
         except Exception as e:
             print(f"[Error] Error while requesting the ChatServer: '{e}'")
-            input("Enter:")
+            input("Enter: ")
         else:
             shorten_response_content = shorten_text(response_content, 50)
 
             if not "Pong! CipherChat Chat Service " in response_content:
                 print(f"[Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
-                input("Enter:")
+                input("Enter: ")
             else:
 
                 try:
                     SERVICE_VERSION = float(response_content.replace("Pong! CipherChat Chat Service ", ""))
                 except Exception as e:
                     print(f"[Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
-                    input("Enter:")
+                    input("Enter: ")
 
                 if SERVICE_VERSION != VERSION:
                     print("[Error] This service does not have the same version as you" +
                           f"\nService Version: {SERVICE_VERSION}\nYour Version: {VERSION}")
-                    input("Enter:")
+                    input("Enter: ")
                 else:
                     SERVICE_ADDRESS = service_address
                     break
