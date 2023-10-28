@@ -550,7 +550,7 @@ class Tor:
                     
                     ips = list(set([ip.strip() for ip in ips.split("\n")]))
                     
-                    if not len(ips) >= {"ipv4": 1610000}.get(ip_version, 1190000):
+                    if not {"ipv4": 1610000}.get(ip_version, 1190000) <= len(ips):
                         continue
 
                     snowflake_ips.append(ips)
@@ -567,7 +567,7 @@ class Tor:
 
                     ips = list(set([ip.strip() for ip in ips.split("\n")]))
 
-                    if not {"obfs4": 5000}.get(bridge_type, 20) >= len(ips):
+                    if not {"obfs4": 5000}.get(bridge_type, 20) <= len(ips):
                         continue
 
                     with open(save_path, "w") as writeable_file:
