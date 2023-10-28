@@ -6,3 +6,4 @@ cryptography
 flask
 distro
 rarfile
+pysocks
