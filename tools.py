@@ -189,7 +189,10 @@ def download_file(url: str, save_path: str, operation_name: Optional[str] = None
         downloaded_bytes = 0
 
         with open(save_path, 'wb') as file:
-            response = requests.get(url, stream=True)
+            try:
+                response = requests.get(url, stream=True)
+            except:
+                return False
 
             if response.status_code == 200:
                 total_length = int(response.headers.get('content-length'))
@@ -319,12 +322,13 @@ class SecureDelete:
         return all_files, all_directories
 
     @staticmethod
-    def file(file_path: str, semaphore: Optional[threading.Semaphore] = None) -> None:
+    def file(file_path: str, semaphore: Optional[threading.Semaphore] = None, quite: bool = False) -> None:
         """
         Function to securely delete a file by replacing it first with random characters and then according to Gutmann patterns and DoD 5220.22-M patterns
 
         :param file_path: The path to the file
         :param semaphore: The Semaphore Object
+        :param quite: If True nothing is written to the console
         """
 
         if semaphore is None:
@@ -356,20 +360,21 @@ class SecureDelete:
                         for pattern in DOD_PATTERNS:
                             file.write(pattern)
                 except Exception as e:
-                    print("Error:", e)
-                    pass
+                    if not quite:
+                        console.log(f"[red][Error] Error deleting the file '{file_path}': {e}")
 
             try:
                 os.remove(file_path)
-            except Exception:
+            except:
                 pass
     
     @staticmethod
-    def directory(directory_path):
+    def directory(directory_path: str, quite: bool = False) -> None:
         """
         Securely deletes entire folders with files and subfolders
 
         :param directory_path: The path to the directory
+        :param quite: If True nothing is written to the console
         """
 
         files, directorys = SecureDelete.list_files_and_directories(directory_path)
@@ -377,7 +382,7 @@ class SecureDelete:
         semaphore = threading.Semaphore(20)
 
         for file in files:
-            thread = threading.Thread(target=SecureDelete.file, args=(file, semaphore))
+            thread = threading.Thread(target=SecureDelete.file, args=(file, semaphore, quite))
             thread.start()
         
         for directory in directorys:
@@ -546,14 +551,18 @@ class Tor:
                         file_in_rar = rf.namelist()[0]
 
                         with rf.open(file_in_rar) as readable_file:
-                            ips = readable_file.read()
+                            ips = readable_file.read().decode('utf-8')
                     
-                    ips = list(set([ip.strip() for ip in ips.split("\n")]))
+                    _ips = []
+                    for ip in ips.split("\n"):
+                        ip = ip.strip()
+                        if not ip == "":
+                            _ips.append(ip)
                     
-                    if {"ipv4": 1610000}.get(ip_version, 1190000) >= len(ips):
+                    if {"ipv4": 1610000}.get(ip_version, 1190000) >= len(_ips):
                         continue
 
-                    snowflake_ips.append(ips)
+                    snowflake_ips.extend(_ips)
                 
                 if len(snowflake_ips) != 0:
                     with open(save_path, "w") as writeable_file:
@@ -565,13 +574,17 @@ class Tor:
                     with open(file_path, "r") as readable_file:
                         ips = readable_file.read()
 
-                    ips = list(set([ip.strip() for ip in ips.split("\n")]))
+                    _ips = []
+                    for ip in ips.split("\n"):
+                        ip = ip.strip()
+                        if not ip == "":
+                            _ips.append(ip)
 
-                    if {"obfs4": 5000}.get(bridge_type, 20) >= len(ips):
+                    if {"obfs4": 5000}.get(bridge_type, 20) >= len(_ips):
                         continue
 
                     with open(save_path, "w") as writeable_file:
-                        json.dump(ips, writeable_file)
+                        json.dump(_ips, writeable_file)
 
     def get_download_link() -> Tuple[Optional[str], Optional[str]]:
         "Request https://www.torproject.org to get the latest download links"

@@ -25,6 +25,8 @@ NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
 DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
 
+BRIDGES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "bridges.conf")
+
 # Service Files
 SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
 DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
@@ -81,6 +83,60 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
 
 
 clear_console()
+
+
+bridges_conf = None
+DEFAULT_BRIDGES_CONF = {"build_in": False, "type": "obfs4"}
+
+
+# Choose what bridges to use
+if os.path.isfile(BRIDGES_CONF_PATH):
+    with open(BRIDGES_CONF_PATH, "r") as readable_file:
+        bridges_configuration = readable_file.read().strip()
+    
+    try:
+        bridge_conf = bridges_configuration.split("-")
+        use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
+        bridges_conf = {"build_in": use_build_in, "type": type_of_bridge}
+    except:
+        pass
+
+if bridges_conf is None:
+    while True:
+        clear_console()
+
+        print("\n~~~ Select TOR bridge type ~~~")
+        print("obfs4:\nobfs4 (obfuscated bridges) is designed to obfuscate Tor traffic, making it harder to detect and block by disguising it as regular internet traffic.\nIts advantage lies in its effectiveness in bypassing censorship, but it can be resource-intensive, requiring more bandwidth. Additionally, it might be identified by advanced censorship systems.\n")
+        print("snowflake:\nSnowflake is a pluggable transport for Tor that uses WebRTC technology to facilitate connections by enlisting volunteer proxies through web browsers to aid users in accessing the Tor network.\nThe advantage of Snowflake is its simplicity and decentralized nature; however, its dependency on volunteers and web browsers might result in sporadic availability and potential risks associated with relying on unknown proxies.\n")
+        print("webtunnel:\nWebtunnel bridges use HTTP or HTTPS to bypass censorship by disguising Tor traffic within standard web traffic.\nThe advantage lies in its ability to blend Tor traffic with regular web traffic, making it difficult to differentiate. However, it might be vulnerable to sophisticated traffic analysis, and it might be blocked if the censoring system specifically targets its identifying patterns.\n")
+        print("meek_lite:\n(Only Buildin)\nMeek_lite uses domain fronting to disguise Tor traffic as traffic to a major content delivery network (CDN) like Amazon or Microsoft, making it harder for censors to differentiate.\nIts advantage is in its high potential to bypass censorship, but it could be less efficient due to increased latency and reliance on a small number of front domains, which, if blocked, could disrupt the service. Additionally, it might attract attention due to its use of major CDN domains.\n")
+
+        type_of_bridge = input("Choose Tor Bridge Type (obfs4, snowflake, webtunnel, meek_lite): ")
+        if type_of_bridge in ["obfs4", "snowflake", "webtunnel", "meek_lite"]:
+            break
+        else:
+            print(f"\n'{type_of_bridge}' is not a bridge type")
+            input("Enter: ")
+    
+    use_build_in = {"y": True, "yes": True, "t": True, "true": True}.get(input("Do you want to use built-in bridges (recommended: no) [y or n]:  ").lower(), False)
+    bridges_conf = {"build_in": use_build_in, "type": type_of_bridge}
+
+    save_it = {"n": False, "no": False, "f": False, "false": False}.get(input("Save selection? (recommended: yes) [y or n]: ").lower(), True)
+
+    if save_it:
+        if not os.path.isdir(NEEDED_DIR_PATH):
+            os.mkdir(NEEDED_DIR_PATH)
+        
+        save_content = str(use_build_in) + "-" + type_of_bridge
+        with open(BRIDGES_CONF_PATH, "w") as writeable_file:
+            writeable_file.write(save_content)
+    
+    if not use_build_in:
+        Tor.download_bridges()
+        with console.status("Processing Bridges..."):
+            Tor.process_bridges()
+        with console.status("[bold green]Cleaning up (This can take up to two minutes)..."):
+            SecureDelete.directory(TEMP_DIR_PATH, quite = True)
 
 
 # Install The Onion Router
