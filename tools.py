@@ -12,6 +12,7 @@ import re
 import gnupg
 import psutil
 import json
+import rarfile
 from stem.process import launch_tor_with_config
 from stem import control
 import stem
@@ -34,6 +35,14 @@ Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88
 
 -~-    Programmed by TN3W - https://github.com/tn3w/CipherChat    -~-
 '''
+
+CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
+TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
+NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
+
+SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
+DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
 
 # GnuPG
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
@@ -64,6 +73,21 @@ MEEKLITE_BUILDIN_BRIDGES = [
 WEBTUNNEL_BUILDIN_BRIDGES = [
     "webtunnel [2001:db8:9443:367a:3276:1e74:91c3:7a5a]:443 54BF1146B161573185FBA0299B0DC3A8F7D08080 url=https://d3pyjtpvxs6z0u.cloudfront.net/Exei6xoh1aev8fiethee ver=0.0.1"
 ]
+DOWNLOAD_BRIDGE_URLS = {
+    "obfs4": {
+        "github": "https://raw.githubusercontent.com/scriptzteam/Tor-Bridges-Collector/main/bridges-obfs4",
+        "backup": "https://tor-bridges-collector.0xc0d3.xyz/Tor-Bridges-Collector-main/bridges-obfs4"
+    },
+    "snowflake": {
+        "github": ["https://github.com/scriptzteam/Tor-Bridges-Collector/raw/main/bridges-snowflake-ipv4.rar", "https://github.com/scriptzteam/Tor-Bridges-Collector/raw/main/bridges-snowflake-ipv6.rar"],
+        "backup": ["https://tor-bridges-collector.0xc0d3.xyz/Tor-Bridges-Collector-main/bridges-snowflake-ipv4.rar", "https://tor-bridges-collector.0xc0d3.xyz/Tor-Bridges-Collector-main/bridges-snowflake-ipv4.rar"]
+    },
+    "webtunnel": {
+        "github": "https://raw.githubusercontent.com/scriptzteam/Tor-Bridges-Collector/main/bridges-webtunnel",
+        "backup": "https://tor-bridges-collector.0xc0d3.xyz/Tor-Bridges-Collector-main/bridges-webtunnel"
+    }
+}
+IP_VERSIONS = ["ipv4", "ipv6"]
 
 
 # Linux
@@ -95,13 +119,6 @@ PACKAGE_MANAGERS = [
     {"version_command": "emerge --version", "installation_command": "emerge", "update_command": "emerge --sync"},
     {"version_command": "eopkg --version", "installation_command": "eopkg install", "update_command": "eopkg up"}
 ]
-
-
-CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
-
-SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
-DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
 
 console = Console()
 
@@ -156,7 +173,7 @@ def clear_console():
     print(LOGO)
 
 
-def download_file(url: str, save_path: str, operation_name: Optional[str] = None) -> None:
+def download_file(url: str, save_path: str, operation_name: Optional[str] = None) -> bool:
     """
     Function to download a file
 
@@ -180,7 +197,7 @@ def download_file(url: str, save_path: str, operation_name: Optional[str] = None
                 if operation_name:
                     task = progress.add_task(f"[cyan]Downloading {operation_name}...", total=total_length)
                 else:
-                    task = progress.add_task(f"[cyan]Downloading...", total=100)
+                    task = progress.add_task(f"[cyan]Downloading...", total=total_length)
 
                 for chunk in response.iter_content(chunk_size=1024):
                     if chunk:
@@ -188,6 +205,9 @@ def download_file(url: str, save_path: str, operation_name: Optional[str] = None
                         downloaded_bytes += len(chunk)
 
                         progress.update(task, completed=downloaded_bytes)
+            else:
+                return False
+    return True
 
 
 def get_password_strength(password: str) -> int:
@@ -480,6 +500,78 @@ class GnuPG:
 
 class Tor:
     "Collection of functions that have something to do with the Tor network"
+
+    def download_bridges() -> None:
+        "Downloads Tor bridges obsf4, snowflake and webtunnel"
+
+        if not os.path.isdir(TEMP_DIR_PATH):
+            os.mkdir(TEMP_DIR_PATH)
+        
+        for bridge_type, download_urls in DOWNLOAD_BRIDGE_URLS.items():
+            if bridge_type == "snowflake":
+                index = 0
+                for ip_version in IP_VERSIONS:
+                    file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ip_version + ".rar")
+
+                    is_successful = download_file(download_urls["github"][index], file_path, bridge_type.title() + " " + ip_version.title())
+                    if not is_successful:
+                        download_file(download_urls["backup"][index], file_path, bridge_type.title() + " " + ip_version.title() + " Backup")
+
+                    index += 1
+            else:
+                file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ".txt")
+
+                is_successful = download_file(download_urls["github"], file_path, bridge_type.title())
+                if not is_successful:
+                    download_file(download_urls["backup"], file_path, bridge_type.title() + " Backup")
+    
+    def process_bridges() -> None:
+        "Processes and validates the downloaded bridges"
+
+        if not os.path.isdir(NEEDED_DIR_PATH):
+            os.mkdir(NEEDED_DIR_PATH)
+
+        for bridge_type, _ in DOWNLOAD_BRIDGE_URLS.items():
+            save_path = os.path.join(NEEDED_DIR_PATH, bridge_type + ".json")
+            
+            if bridge_type == "snowflake":
+                snowflake_ips = list()
+                for ip_version in IP_VERSIONS:
+                    file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ip_version + ".rar")
+
+                    if not os.path.isfile(file_path):
+                        continue
+
+                    with rarfile.RarFile(file_path) as rf:
+                        file_in_rar = rf.namelist()[0]
+
+                        with rf.open(file_in_rar) as readable_file:
+                            ips = readable_file.read()
+                    
+                    ips = list(set([ip.strip() for ip in ips.split("\n")]))
+                    
+                    if not ((len(ips) >= 1610000 and ip_version == "ipv4") or (len(ips) >= 1190000 and ip_version == "ipv6")):
+                        continue
+
+                    snowflake_ips.append(ips)
+                
+                if len(snowflake_ips) != 0:
+                    with open(save_path, "w") as writeable_file:
+                        json.dump(snowflake_ips, writeable_file)
+            else:
+                file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ".txt")
+
+                if os.path.isfile(file_path):
+                    with open(file_path, "r") as readable_file:
+                        ips = readable_file.read()
+
+                    ips = list(set([ip.strip() for ip in ips.split("\n")]))
+
+                    if not {"obfs4": 5000}.get(bridge_type, 20) >= len(ips):
+                        continue
+
+                    with open(save_path, "w") as writeable_file:
+                        json.dump(ips, writeable_file)
 
     def get_download_link() -> Tuple[Optional[str], Optional[str]]:
         "Request https://www.torproject.org to get the latest download links"
