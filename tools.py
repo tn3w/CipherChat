@@ -24,6 +24,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
 
+VERSION = 1.11
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -391,7 +392,7 @@ class Linux:
         return None
 
 
-class GNUPG:
+class GnuPG:
     "Collection of functions that have something to do with GNUPG"
 
     def search_key_name(search: str) -> Optional[str]:
@@ -478,16 +479,15 @@ class Tor:
     def kill_tor_daemon() -> None:
         "Stops all running Tor Daemon processes."
 
-        with console.status("[red]Killing Tor Daemon..."):
-            try:
-                for process in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
-                    if "tor" in process.cmdline():
-                        process.terminate()
-                console.log("[green]All Tor Daemon processes stopped.")
-            except psutil.AccessDenied as e:
-                console.log(f"[red]Privileg Error: AccessDenied while stopping Tor: {e}")
-            except Exception as e:
-                console.log(f"[red]Error stopping Tor Daemon: {e}")
+        try:
+            for process in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
+                if "tor" in process.cmdline():
+                    process.terminate()
+            console.log("[green]All Tor Daemon processes stopped.")
+        except psutil.AccessDenied as e:
+            console.log(f"[red]Privileg Error: AccessDenied while stopping Tor: {e}")
+        except Exception as e:
+            console.log(f"[red]Error stopping Tor Daemon: {e}")
 
     def get_hidden_service_info() -> (Optional[str], int):
         "Retrieves hidden service information from a configuration file."
@@ -511,28 +511,35 @@ class Tor:
         :param as_service: If True, a hidden service is started with
         """
 
-        if not Tor.is_tor_daemon_alive():
-            config = {
-                'SocksPort': '9050',
-                'ControlPort': '9051',
-                'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
-            } # FIXME: Bridges must be chosen randomly, in some way
+        if Tor.is_tor_daemon_alive():
+            if not as_service:
+                return
+            Tor.kill_tor_daemon()
 
-            start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
+        config = {
+            'SocksPort': '9050',
+            'ControlPort': '9051',
+            'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
+        } # FIXME: Bridges must be chosen randomly, in some way
 
-            if any(start_service_criterias):
-                hidden_dir, hidden_port = Tor.get_hidden_service_info()
-                
-                if (not hidden_dir and os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH)) or as_service:
-                    hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
-                
-                config['HiddenServiceDir'] = hidden_dir
-                config['HiddenServicePort'] = f'80 127.0.0.1:{hidden_port}'
+        start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
 
+        if any(start_service_criterias):
+            hidden_dir, hidden_port = Tor.get_hidden_service_info()
+            
+            if (not hidden_dir and os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH)) or as_service:
+                hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
+            
+            config['HiddenServiceDir'] = hidden_dir
+            config['HiddenServicePort'] = f'80 127.0.0.1:{hidden_port}'
+
+        try:
             launch_tor_with_config(
                 tor_cmd=TOR_PATH,
                 config=config
             )
+        except Exception as e:
+            console.log(f"[red][Error] Error when starting Tor: '{e}'")
          
     def is_tor_daemon_alive() -> bool:
         "Function to check if the Tor Daemon is currently running"
@@ -544,12 +551,13 @@ class Tor:
                 if controller.is_alive():
                     return True
                 else:
-                    print("[Error] Tor is probably not installed.")
+                    console.log("[red][Error] Tor is probably not installed.")
         except stem.SocketError as socket_error:
-            print(f"[Error] Error connecting to the Tor Control Port '{socket_error}'")
-        except stem.connection.AuthenticationFailure as authentication_error:
-            print(f"[Error] Tor Authentication error '{authentication_error}'")
-        return False
+            console.log(f"[red][Error] Error connecting to the Tor Control Port '{socket_error}'")
+        
+        for process in psutil.process_iter(attrs=['pid', 'name']):
+            if 'tor' in process.name():
+                return True
 
     def get_request_session() -> requests.session:
         "Creates gate connection and returns requests.session"
@@ -563,11 +571,11 @@ class Tor:
 
         try:
             new_tor_signal()
-        except (stem.SocketError, stem.AuthenticationFailure, stem.SignalError):
+        except stem.SocketError:
             Tor.start_tor_daemon()
             new_tor_signal()
         except Exception as e:
-            print(f"[Error] Request Error: '{e}'")
+            console.log(f"[red][Error] Request Error: '{e}'")
 
         new_session.proxies = {
             'http': 'socks5h://127.0.0.1:9050',

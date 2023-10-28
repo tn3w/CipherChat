@@ -1,5 +1,10 @@
+from sys import exit
+
+if __name__ != "__main__":
+    exit()
+
 import os
-from sys import argv as ARGUMENTS, exit
+from sys import argv as ARGUMENTS, executable as EXECUTABLE
 from time import time
 from rich.console import Console
 import subprocess
@@ -11,23 +16,11 @@ import json
 from flask import Flask
 import logging
 from tools import get_system_architecture, clear_console, is_password_save, get_password_strength, generate_random_string,\
-    download_file, shorten_text, SecureDelete, Tor, GNUPG, Linux, Hashing, SymmetricEncryption, AsymmetricEncryption
-
-
-VERSION = 1.10
+    download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, Hashing, SymmetricEncryption, AsymmetricEncryption, VERSION
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
     print("CipherChat Version", VERSION)
     exit()
-
-LOGO = '''
- dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
-dP   `" 88 88__dP 88  88 88__   88__dP dP   `" 88  88   dPYb     88   
-Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88   
- YboodP 88 88     88  88 888888 88  Yb  YboodP 88  88 dP""""Yb   88   
-
--~-    Programmed by TN3W - https://github.com/tn3w/CipherChat    -~-
-'''
 
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
@@ -47,8 +40,8 @@ console = Console()
 
 SYSTEM, MACHINE = get_system_architecture()
 
-TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe"}.get(SYSTEM, "/usr/bin/tor")
-TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
+TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
+TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc", "Linux": "/etc/tor/torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
 
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
@@ -123,10 +116,10 @@ else:
         download_file(signature_link, signature_file_path, "Tor Browser Signature")
 
         with console.status("[bold green]Trying to get the PGP Key Name for The Onion Router..."):
-            key_name = GNUPG.search_key_name("Tor Browser Developers (signing key) <torbrowser@torproject.org>")
+            key_name = GnuPG.search_key_name("Tor Browser Developers (signing key) <torbrowser@torproject.org>")
         console.log("[green]~ Key Name received")
         
-        gpg = GNUPG.load_public_keys(key_name)
+        gpg = GnuPG.load_public_keys(key_name)
         console.log("[green]~ Public Keys Loaded")
 
         with console.status("[bold green]Verify The Onion Router Installation File..."):
@@ -160,44 +153,8 @@ else:
 
 # Running Tor Hidden Service
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
-    if os.path.isfile(SERVICE_SETUP_CONF_PATH):
-        with open(SERVICE_SETUP_CONF_PATH, "r") as readable_file:
-            service_setup_info = json.load(readable_file)
-    else:
-        service_setup_info = {}
-
-    if service_setup_info.get("restart_tor", True):
-        if Tor.is_tor_daemon_alive():
-            Tor.kill_tor_daemon()
-    
-    HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
-    HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
-    HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
-    
-    with console.status("[bold green]Try to start the Tor Daemon with Service..."):
-        Tor.start_tor_daemon(as_service=True)
-    
-    clear_console()
-    
-    try:
-        with open(HOSTNAME_PATH, "r") as readable_file:
-            HOSTNAME = readable_file.read()
-    except Exception as e:
-        console.log(f"[red]Error getting Hostname (Maybe the Tor service has not started properly): {e}")
-    else:
-        console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
-
-    app = Flask("CipherChat")
-
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.WARNING)
-
-    @app.route("/ping")
-    def ping():
-        return "Pong! CipherChat Chat Service " + str(VERSION)
-
-    app.run(host = "localhost", port = HIDDEN_PORT)
-
+    os.chdir(CURRENT_DIR_PATH)
+    subprocess.run([EXECUTABLE, "hiddenservice.py"], check=True)
     exit()
 
 
