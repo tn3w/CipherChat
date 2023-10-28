@@ -517,7 +517,7 @@ class Tor:
                     if not is_successful:
                         download_file(download_urls["backup"][index], file_path, bridge_type.title() + " " + ip_version.title() + " Backup")
 
-                    index += 1
+                    index = 1
             else:
                 file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ".txt")
 
