@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
 
-VERSION = 1.11
+VERSION = 1.12
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
