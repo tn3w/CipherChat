@@ -41,6 +41,7 @@ DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
 NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
 
+BRIDGES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "bridges.conf")
 SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
 DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
 
@@ -49,8 +50,7 @@ KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-k
 
 
 # Tor Bridges
-USE_BUILDIN_BRIDGES = True
-BRIDGE_TYPE = "obfs4" # obfs4, snowflake, webtunnel or meek_lite
+DEFAULT_BRIDGES_CONF = False, "obfs4"
 OBFS4_BUILDIN_BRIDGES = [
     "obfs4 85.31.186.98:443 011F2599C0E9B27EE74B353155E244813763C3E5 cert=ayq0XzCwhpdysn5o0EyDUbmSOx3X/oTEbzDMvczHOdBJKlvIdHHLJGkZARtT4dcBFArPPg iat-mode=0",
     "obfs4 193.11.166.194:27015 2D82C2E354D531A68469ADF7F878FA6060C6BACA cert=4TLQPJrTSaDffMK7Nbao6LC7G9OW/NHkUwIdjLSS3KYf0Nv4/nQiiI8dY2TcsQx01NniOg iat-mode=0",
@@ -585,6 +585,59 @@ class Tor:
 
                     with open(save_path, "w") as writeable_file:
                         json.dump(_ips, writeable_file)
+    
+    def get_bridge_configuration() -> Tuple[bool, str]:
+        "Function that returns the bridge configuration"
+
+        if os.path.isfile(BRIDGES_CONF_PATH):
+            with open(BRIDGES_CONF_PATH, "r") as readable_file:
+                bridges_configuration = readable_file.read().strip()
+            
+            try:
+                bridge_conf = bridges_configuration.split("-")
+                use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
+                return use_build_in, type_of_bridge
+            except:
+                pass
+        return DEFAULT_BRIDGES_CONF
+
+    def get_bridges() -> Union[list, str]:
+        "Function that returns bridges"
+
+        use_build_in, type_of_bridge = Tor.get_bridge_configuration()
+        bridges_needed = {"meek_lite": 1, "webtunnel": 1}.get(type_of_bridge, 3)
+        buildin_list = {"snowflake": SNOWFLAKE_BUILDIN_BRIDGES, "webtunnel": WEBTUNNEL_BUILDIN_BRIDGES, "meek_lite": MEEKLITE_BUILDIN_BRIDGES}.get(type_of_bridge, OBFS4_BUILDIN_BRIDGES)
+
+        bridges = list()
+        
+        while not len(bridges) >= bridges_needed:
+            if len(buildin_list) == 1:
+                bridges.append(buildin_list[0])
+            else:
+                new_bridge = secrets.choice(buildin_list)
+                if not new_bridge in bridges:
+                    bridges.append(new_bridge)
+
+
+        if not use_build_in and not type_of_bridge == "meek_lite":
+            file_path = os.path.join(NEEDED_DIR_PATH, type_of_bridge + ".json")
+            if os.path.isfile(file_path):
+                with open(file_path, "r") as readable_file:
+                    file_bridges = json.load(readable_file)
+            
+            bridges = list()
+
+            while not len(bridges) >= bridges_needed:
+                new_bridge = secrets.choice(file_bridges)
+                if type_of_bridge == "snowflake":
+                    new_bridge = "snowflake " + new_bridge
+                if not new_bridge in bridges:
+                    bridges.append(new_bridge)
+        
+        if len(bridges) == 1:
+            bridges = bridges[0]
+        
+        return bridges
 
     def get_download_link() -> Tuple[Optional[str], Optional[str]]:
         "Request https://www.torproject.org to get the latest download links"
@@ -652,11 +705,14 @@ class Tor:
                 return
             Tor.kill_tor_daemon()
 
+        bridges = Tor.get_bridges()
+
         config = {
             'SocksPort': '9050',
             'ControlPort': '9051',
-            'Bridge': ' obfs4 [2001:19f0:4401:87c:5400:3ff:feb7:8cfc]:4444 55346F385B6FB7069D1588CE842DBE88F90F90C5 cert=fbtptOz8dA1Sz6Fl4i0k8KNqBVt8ueGmBHUBixB1/0QCyxwct9w4TwyXJe9kjwQCeR9SVw iat-mode=0'
-        } # FIXME: Bridges must be chosen randomly, in some way
+            'UseBridges': '1',
+            'Bridge': bridges
+        }
 
         start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
 

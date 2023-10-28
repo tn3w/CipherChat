@@ -85,7 +85,6 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
 clear_console()
 
 
-bridges_conf = None
 DEFAULT_BRIDGES_CONF = {"build_in": False, "type": "obfs4"}
 
 
@@ -121,15 +120,12 @@ if bridges_conf is None:
     use_build_in = {"y": True, "yes": True, "t": True, "true": True}.get(input("Do you want to use built-in bridges (recommended: no) [y or n]:  ").lower(), False)
     bridges_conf = {"build_in": use_build_in, "type": type_of_bridge}
 
-    save_it = {"n": False, "no": False, "f": False, "false": False}.get(input("Save selection? (recommended: yes) [y or n]: ").lower(), True)
-
-    if save_it:
-        if not os.path.isdir(NEEDED_DIR_PATH):
-            os.mkdir(NEEDED_DIR_PATH)
-        
-        save_content = str(use_build_in) + "-" + type_of_bridge
-        with open(BRIDGES_CONF_PATH, "w") as writeable_file:
-            writeable_file.write(save_content)
+    if not os.path.isdir(NEEDED_DIR_PATH):
+        os.mkdir(NEEDED_DIR_PATH)
+    
+    save_content = str(use_build_in) + "-" + type_of_bridge
+    with open(BRIDGES_CONF_PATH, "w") as writeable_file:
+        writeable_file.write(save_content)
     
     if not use_build_in:
         Tor.download_bridges()
@@ -137,8 +133,6 @@ if bridges_conf is None:
             Tor.process_bridges()
         with console.status("[bold green]Cleaning up (This can take up to two minutes)..."):
             SecureDelete.directory(TEMP_DIR_PATH, quite = True)
-
-BRIDGES_CONF = bridges_conf
 
 
 # Install The Onion Router
