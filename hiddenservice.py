@@ -75,8 +75,8 @@ except Exception as e:
         HOSTNAME = readable_file.read()
 
     clear_console()
-else:
-    console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
+
+console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
 
 app = Flask("CipherChat")
 
