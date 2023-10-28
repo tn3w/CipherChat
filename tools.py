@@ -625,7 +625,7 @@ class Tor:
 
         if not use_build_in and not type_of_bridge == "meek_lite":
             file_path = os.path.join(NEEDED_DIR_PATH, type_of_bridge + ".json")
-            
+
             if os.path.isfile(file_path):
                 with open(file_path, "r") as readable_file:
                     file_bridges = json.load(readable_file)
@@ -714,14 +714,19 @@ class Tor:
                 return
             Tor.kill_tor_daemon()
 
-        bridges = Tor.get_bridges()
-
-        config = {
-            'SocksPort': '9050',
-            'ControlPort': '9051',
-            'UseBridges': '1',
-            'Bridge': bridges
-        }
+        if not as_service:
+            bridges = Tor.get_bridges()
+            config = {
+                'SocksPort': '9050',
+                'ControlPort': '9051',
+                'UseBridges': '1',
+                'Bridge': bridges
+            }
+        else:
+            config = {
+                'SocksPort': '9050',
+                'ControlPort': '9051'
+            }
 
         start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
 
