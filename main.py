@@ -138,6 +138,8 @@ if bridges_conf is None:
         with console.status("[bold green]Cleaning up (This can take up to two minutes)..."):
             SecureDelete.directory(TEMP_DIR_PATH, quite = True)
 
+BRIDGES_CONF = bridges_conf
+
 
 # Install The Onion Router
 if os.path.isfile(TOR_PATH):
