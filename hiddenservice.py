@@ -1,4 +1,8 @@
 from sys import exit
+
+if __name__ != "__main__":
+    exit()
+
 import os
 import json
 from tools import Tor, clear_console, get_system_architecture, VERSION
@@ -40,20 +44,25 @@ try:
     with open(HOSTNAME_PATH, "r") as readable_file:
         HOSTNAME = readable_file.read()
 except Exception as e:
+    hidden_dir, hidden_port = Tor.get_hidden_service_info()
+    if not hidden_dir:
+        hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
     while True:
         clear_console()
         console.log(f"[red][Error]: Error while getting the hostname: '{e}', This error occurs when the Tor Hidden Service could not be started, below is a tutorial to fix this error:")
 
-        hidden_dir, hidden_port = Tor.get_hidden_service_info()
-        if not hidden_dir:
-            hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
-
         print("\n~~~ Tutorial ~~~")
         if SYSTEM in ["Linux", "macOS"]:
-            print("1. Open a new console where you run Command 2-3")
+            print("1. Open a new console where you run Command 2-4")
             print("2. Execute the command `sudo -s` to open a Sudo shell")
             print(fr"""3. Execute the following command: `echo -e "SocksPort 9050\nControlPort 9051\nHiddenServiceDir {hidden_dir}\nHiddenServicePort 80 127.0.0.1:{hidden_port}" | cat - {TORRC_PATH} > temp && mv temp {TORRC_PATH} && chmod 600 {TORRC_PATH}`""")
             print("4. Use 'systemctl restart tor.service' to restart Tor")
+        else:
+            print("""1. Press the Windows key and type `notepad.exe`, press "Open as admin". (This should open a text editor as administrator).""")
+            print(f"""2. Now press "File > Open file" at the top and enter the following file: '{TORRC_PATH}' (This opens the correct file)""")
+            print(f"""3. Now write the following phrases at the beginning of the file:""")
+            print(f"SocksPort 9050\nControlPort 9051\nHiddenServiceDir {hidden_dir}\nHiddenServicePort 80 127.0.0.1:{hidden_port}")
+            print("""4. Close the file by pressing "File > Save".""")
         input("Ready? Press Enter: ")
 
         with console.status("[bold green]Try to start the Tor Daemon with Service..."):
@@ -61,8 +70,10 @@ except Exception as e:
         
         if os.path.isfile(HOSTNAME_PATH):
             break
+
     with open(HOSTNAME_PATH, "r") as readable_file:
         HOSTNAME = readable_file.read()
+
     clear_console()
 else:
     console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
