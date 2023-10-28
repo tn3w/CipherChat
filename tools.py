@@ -610,29 +610,38 @@ class Tor:
 
         bridges = list()
         
-        while not len(bridges) >= bridges_needed:
+        while True:
             if len(buildin_list) == 1:
                 bridges.append(buildin_list[0])
+                break
             else:
                 new_bridge = secrets.choice(buildin_list)
                 if not new_bridge in bridges:
                     bridges.append(new_bridge)
 
+            if len(bridges) >= bridges_needed:
+                break
+
 
         if not use_build_in and not type_of_bridge == "meek_lite":
             file_path = os.path.join(NEEDED_DIR_PATH, type_of_bridge + ".json")
+            
             if os.path.isfile(file_path):
                 with open(file_path, "r") as readable_file:
                     file_bridges = json.load(readable_file)
             
             bridges = list()
 
-            while not len(bridges) >= bridges_needed:
+            while True:
                 new_bridge = secrets.choice(file_bridges)
                 if type_of_bridge == "snowflake":
                     new_bridge = "snowflake " + new_bridge
+
                 if not new_bridge in bridges:
                     bridges.append(new_bridge)
+
+                if len(bridges) >= bridges_needed:
+                    break
         
         if len(bridges) == 1:
             bridges = bridges[0]

@@ -96,11 +96,9 @@ if os.path.isfile(BRIDGES_CONF_PATH):
     try:
         bridge_conf = bridges_configuration.split("-")
         use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
-        bridges_conf = {"build_in": use_build_in, "type": type_of_bridge}
     except:
         pass
-
-if bridges_conf is None:
+else:
     while True:
         clear_console()
 
@@ -118,7 +116,6 @@ if bridges_conf is None:
             input("Enter: ")
     
     use_build_in = {"y": True, "yes": True, "t": True, "true": True}.get(input("Do you want to use built-in bridges (recommended: no) [y or n]:  ").lower(), False)
-    bridges_conf = {"build_in": use_build_in, "type": type_of_bridge}
 
     if not os.path.isdir(NEEDED_DIR_PATH):
         os.mkdir(NEEDED_DIR_PATH)
