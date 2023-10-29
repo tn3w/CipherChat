@@ -1291,14 +1291,16 @@ class ArgumentValidator:
         
         return True, None
     
-    def public_key(public_key: Optional[str] = None):#
+    def public_key(public_key: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
-        
+        Validates a public key based on whether it was specified, its length, and whether it works
+
+        :param public_key: The public key (Optional)
         """
 
         if public_key is None:
             return False, {"status_code": 400, "error": "Parameter 'public_key' is None."}
-        if len(public_key) < 294 or len(public_key) > 550:
+        if len(public_key) < 294 or len(public_key) > 550: # 2048 - 4096
             return False, {"status_code": 400, "error": "Parameter 'public_key' is to " + ("short" if len(public_key) < 294 else "long") + "."}
         try:
             serialization.load_der_public_key(public_key.encode('latin-1'), backend=default_backend())

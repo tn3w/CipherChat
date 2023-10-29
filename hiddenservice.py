@@ -102,6 +102,7 @@ def api_register_captcha():
     hashed_chat_password = data.get("hashed_chat_password")
     public_key = data.get("public_key")
     crypted_private_key = data.get("crypted_private_key")
+    two_factor_token = data.get("two_factor_token")
 
     is_valid_username, username_error = ArgumentValidator.username(username)
     if not is_valid_username:
@@ -114,6 +115,10 @@ def api_register_captcha():
     is_valid_hashed_chat_password, hashed_chat_password_error = ArgumentValidator.hashed_chat_password(hashed_chat_password)
     if not is_valid_hashed_chat_password:
         return hashed_chat_password_error
+    
+    is_valid_public_key, public_key_error = ArgumentValidator.public_key(public_key)
+    if not is_valid_public_key:
+        return public_key_error
     
     
 

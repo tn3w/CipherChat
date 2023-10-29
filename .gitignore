@@ -163,4 +163,4 @@ tmp/
 data/
 needed/
 hiddenservice/
-test.py
+test*.py
