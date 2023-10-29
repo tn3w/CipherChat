@@ -96,6 +96,8 @@ def api_register_captcha():
         return {"status_code": 400, "error": "No valid data given as json"}
     
     data = request.json
+    if not isinstance(data, dict):
+        return {"status_code": 400, "error": "Data is not given as a dictionary"}
 
     username = data.get("username")
     hashed_password = data.get("hashed_password")
@@ -120,6 +122,12 @@ def api_register_captcha():
     if not is_valid_public_key:
         return public_key_error
     
+    is_valid_crypted_private_key, crypted_private_key_error = ArgumentValidator.crypted_private_key(crypted_private_key)
+    if not is_valid_crypted_private_key:
+        return crypted_private_key_error
     
+    is_valid_two_factor_token, two_factor_token_error = ArgumentValidator.two_factor_token(two_factor_token)
+    if not is_valid_two_factor_token:
+        return two_factor_token_error
 
 app.run(host = "localhost", port = HIDDEN_PORT)

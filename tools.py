@@ -1252,10 +1252,10 @@ class ArgumentValidator:
             comparison = FastHashing().compare(username, hashed_username)
 
             if comparison and is_register:
-                return False, {"status_code": 400, "error": "The given username in Parameter 'username' exist"}
+                return False, {"status_code": 400, "error": "The given username in Parameter 'username' exist."}
             
         if not is_register:
-            return False, {"status_code": 400, "error": "The given username in Parameter 'username' does not exist"}
+            return False, {"status_code": 400, "error": "The given username in Parameter 'username' does not exist."}
         
         return True, None
     
@@ -1305,6 +1305,34 @@ class ArgumentValidator:
         try:
             serialization.load_der_public_key(public_key.encode('latin-1'), backend=default_backend())
         except:
-            return False, {"status_code": 400, "error": "The public key given in the Parameter 'public_key' could not be loaded"}
+            return False, {"status_code": 400, "error": "The public key given in the Parameter 'public_key' could not be loaded."}
         
+        return True, None
+
+    def crypted_private_key(crypted_private_key: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+        """
+        Validates a crypted_private_key if given, checks if the length is correct
+
+        :param crypted_private_key: The crypted private key (Optional)
+        """
+
+        if crypted_private_key is None:
+            return True, None
+        if len(crypted_private_key) < 2476 or len(crypted_private_key) > 4780: # 2048 - 4096
+            return False, {"status_code": 400, "error": "Parameter 'crypted_private_key' is to " + ("short" if len(crypted_private_key) < 2476 else "long") + "."}
+        return True, None
+    
+    def two_factor_token(two_factor_token: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+        """
+        Validates a two_factor_token if it was specified, if it is 100 characters long and if it is hexadecimal.
+
+        :param two_factor_token: The 2 factor token (Optional)
+        """
+
+        if two_factor_token is None:
+            return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is None."}
+        if len(two_factor_token) != 100:
+            return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is to " + ("short" if len(two_factor_token) < 100 else "long") + "."}
+        if re.match(r"^[0-9A-Fa-f]+$", two_factor_token):
+            return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is not hexadecimal."}
         return True, None
