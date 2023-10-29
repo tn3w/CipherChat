@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{ type_title }} Form</title>
+        <style>
+            body {
+                margin: 0;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background-color: #1e1e1e;
+                color: #fff;
+                font-family: Arial, sans-serif;
+            }
+
+            .container {
+                text-align: center;
+            }
+
+            .form {
+                background-color: #333;
+                padding: 20px;
+                border-radius: 8px;
+                width: 300px;
+                margin: auto;
+            }
+
+            .image-container img {
+                max-width: 100%;
+                display: block;
+                margin-bottom: 15px;
+            }
+
+            .input-container {
+                display: flex;
+                flex-direction: column;
+            }
+
+            label {
+                margin-bottom: 5px;
+            }
+
+            input {
+                padding: 8px;
+                margin-bottom: 15px;
+                border: none;
+                border-radius: 5px;
+            }
+
+            button {
+                padding: 8px 20px;
+                background-color: #4CAF50;
+                color: #fff;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s;
+            }
+
+            button:hover {
+                background-color: #45a049;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <form class="form">
+                <div class="image-container">
+                    <img src="/image.jpg" alt="{{ type_title }} Image">
+                </div>
+                <div class="input-container">
+                    <label for="input">Enter the {{ type }} code</label>
+                    <input type="text" id="input" name="input" placeholder="ABC123DEF456">
+                    <button type="submit">Send</button>
+                </div>
+            </form>
+        </div>
+    </body>
+</html>
