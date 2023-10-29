@@ -25,6 +25,7 @@ from cryptography.hazmat.primitives import hashes, serialization, padding as sym
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
+from flask import request
 
 VERSION = 1.13
 
@@ -319,6 +320,7 @@ file_locks = dict()
 class JSON:
     "Class for loading / saving JavaScript Object Notation (= JSON)"
 
+    @staticmethod
     def load(file_name: str, default: Union[dict, list] = dict()) -> Union[dict, list]:
         """
         Function to load a JSON file securely.
@@ -337,7 +339,8 @@ class JSON:
             with open(file_name, "r") as file:
                 data = json.load(file)
             return data
-        
+    
+    @staticmethod
     def dump(data: Union[dict, list], file_name: str) -> None:
         """
         Function to save a JSON file securely.
@@ -358,9 +361,15 @@ class JSON:
                 json.dump(data, file)
 
 
+# Languages
+LANGUAGES = JSON.load(os.path.join(NEEDED_DIR_PATH, "languages.json"), [])
+LANGUAGE_CODES = [language["code"] for language in LANGUAGES]
+
+
 class SecureDelete:
     "Class for secure deletion of files or folders"
 
+    @staticmethod
     def list_files_and_directories(directory_path: str) -> Tuple[list, list]:
         """
         Function to get all files and directorys in a directory
@@ -520,6 +529,7 @@ class Linux:
 class GnuPG:
     "Collection of functions that have something to do with GNUPG"
 
+    @staticmethod
     def search_key_name(search: str) -> Optional[str]:
         """
         Finds out the KEY Name based on a search term
@@ -545,6 +555,7 @@ class GnuPG:
 
         raise Exception("[Error] No keyname found for The Onion Router, the keyname is needed to verify the download file, Download Canceled.")
     
+    @staticmethod
     def load_public_keys(key_name: str) -> Optional[gnupg.GPG]:
         """
         Creates a PGP instance, and downloads Public Keys
@@ -575,6 +586,7 @@ class GnuPG:
 class Tor:
     "Collection of functions that have something to do with the Tor network"
 
+    @staticmethod
     def download_bridges() -> None:
         "Downloads Tor bridges obsf4, snowflake and webtunnel"
 
@@ -599,6 +611,7 @@ class Tor:
                 if not is_successful:
                     download_file(download_urls["backup"], file_path, bridge_type.title() + " Backup")
     
+    @staticmethod
     def process_bridges() -> None:
         "Processes and validates the downloaded bridges"
 
@@ -655,6 +668,7 @@ class Tor:
                     with open(save_path, "w") as writeable_file:
                         json.dump(_ips, writeable_file)
     
+    @staticmethod
     def get_bridge_configuration() -> Tuple[bool, str]:
         "Function that returns the bridge configuration"
 
@@ -670,6 +684,7 @@ class Tor:
                 pass
         return DEFAULT_BRIDGES_CONF
 
+    @staticmethod
     def get_bridges() -> Union[list, str]:
         "Function that returns bridges"
 
@@ -717,6 +732,7 @@ class Tor:
         
         return bridges
 
+    @staticmethod
     def get_download_link() -> Tuple[Optional[str], Optional[str]]:
         "Request https://www.torproject.org to get the latest download links"
 
@@ -743,6 +759,7 @@ class Tor:
         
         return (download_url, signature_url)
 
+    @staticmethod
     def kill_tor_daemon() -> None:
         "Stops all running Tor Daemon processes."
 
@@ -756,6 +773,7 @@ class Tor:
         except Exception as e:
             console.log(f"[red]Error stopping Tor Daemon: {e}")
 
+    @staticmethod
     def get_hidden_service_info() -> (Optional[str], int):
         "Retrieves hidden service information from a configuration file."
 
@@ -771,6 +789,7 @@ class Tor:
         
         return hidden_dir, hidden_port
 
+    @staticmethod
     def start_tor_daemon(as_service: bool = False) -> None:
         """
         Launches The Onion Router Daemom
@@ -815,7 +834,8 @@ class Tor:
             )
         except Exception as e:
             console.log(f"[red][Error] Error when starting Tor: '{e}'")
-         
+
+    @staticmethod
     def is_tor_daemon_alive() -> bool:
         "Function to check if the Tor Daemon is currently running"
 
@@ -834,6 +854,7 @@ class Tor:
             if 'tor' in process.name():
                 return True
 
+    @staticmethod
     def get_request_session() -> requests.session:
         "Creates gate connection and returns requests.session"
 
@@ -1231,6 +1252,7 @@ class AsymmetricEncryption:
 class ArgumentValidator:
     "Contains functions for validating arguments and credentials"
 
+    @staticmethod
     def username(username: Optional[str] = None, is_register: bool = True) -> Tuple[bool, Optional[dict]]:
         """
         Validates a username if it was specified, if its length is between 4 - 15, if it contains only the characters A-Z, a-z, 0-9, _ and if it already exists
@@ -1259,6 +1281,7 @@ class ArgumentValidator:
         
         return True, None
     
+    @staticmethod
     def hashed_password(hashed_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
         Validates a password hash, whether it was specified, whether it has the correct length and whether it contains hash characters
@@ -1276,6 +1299,7 @@ class ArgumentValidator:
         
         return True, None
 
+    @staticmethod
     def hashed_chat_password(hashed_chat_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
         Validates a chat password hash, whether it has the correct length and whether it contains hash characters
@@ -1291,6 +1315,7 @@ class ArgumentValidator:
         
         return True, None
     
+    @staticmethod
     def public_key(public_key: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
         Validates a public key based on whether it was specified, its length, and whether it works
@@ -1309,6 +1334,7 @@ class ArgumentValidator:
         
         return True, None
 
+    @staticmethod
     def crypted_private_key(crypted_private_key: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
         Validates a crypted_private_key if given, checks if the length is correct
@@ -1322,6 +1348,7 @@ class ArgumentValidator:
             return False, {"status_code": 400, "error": "Parameter 'crypted_private_key' is to " + ("short" if len(crypted_private_key) < 2476 else "long") + "."}
         return True, None
     
+    @staticmethod
     def two_factor_token(two_factor_token: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
         """
         Validates a two_factor_token if it was specified, if it is 100 characters long and if it is hexadecimal.
@@ -1336,3 +1363,54 @@ class ArgumentValidator:
         if re.match(r"^[0-9A-Fa-f]+$", two_factor_token):
             return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is not hexadecimal."}
         return True, None
+
+class WebPage:
+    "Class with useful tools for WebPages"
+
+    @staticmethod
+    def _minimize_tag_content(html: str, tag: str) -> str:
+        """
+        Minimizes the content of a given tag
+        
+        :param html: The HTML page where the tag should be minimized
+        :param tag: The HTML tag e.g. "script" or "style"
+        """
+
+        tag_pattern = rf'<{tag}\b[^>]*>(.*?)<\/{tag}>'
+        
+        def minimize_tag_content(match: re.Match):
+            content = match.group(1)
+            content = re.sub(r'\s+', ' ', content)
+            return f'<{tag}>{content}</{tag}>'
+
+        return re.sub(tag_pattern, minimize_tag_content, html, flags=re.DOTALL | re.IGNORECASE)
+
+    @staticmethod
+    def minimize(html: str) -> str:
+        """
+        Minimizes an HTML page
+
+        :param html: The content of the page as html
+        """
+
+        html = re.sub(r'<!--(.*?)-->', '', html, flags=re.DOTALL)
+        html = re.sub(r'\s+', ' ', html)
+
+        html = WebPage._minimize_tag_content(html, 'script')
+        html = WebPage._minimize_tag_content(html, 'style')
+        return html
+    
+    @staticmethod
+    def get_client_language(default: str = "en"):
+        """
+        Function to get the language code of the client
+
+        :param default: The value that is returned if no language can be found
+        """
+
+        preferred_language = request.accept_languages.best_match(LANGUAGE_CODES)
+
+        if preferred_language != None:
+            return preferred_language
+        
+        return default
