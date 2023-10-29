@@ -107,6 +107,14 @@ def api_register_captcha():
     if not is_valid_username:
         return username_error
     
+    is_valid_hashed_password, hashed_password_error = ArgumentValidator.hashed_password(hashed_password)
+    if not is_valid_hashed_password:
+        return hashed_password_error
+    
+    is_valid_hashed_chat_password, hashed_chat_password_error = ArgumentValidator.hashed_chat_password(hashed_chat_password)
+    if not is_valid_hashed_chat_password:
+        return hashed_chat_password_error
+    
     
 
 app.run(host = "localhost", port = HIDDEN_PORT)

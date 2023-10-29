@@ -7,3 +7,4 @@ flask
 distro
 rarfile
 pysocks
+qrcode

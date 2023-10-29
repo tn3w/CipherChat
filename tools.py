@@ -1078,12 +1078,12 @@ class AsymmetricEncryption:
         self.public_key, self.private_key = public_key, private_key
 
         if not public_key is None:
-            self.publ_key = serialization.load_der_public_key(b64decode(public_key), backend=default_backend())
+            self.publ_key = serialization.load_der_public_key(public_key.encode('latin-1'), backend=default_backend())
         else:
             self.publ_key = None
 
         if not private_key is None:
-            self.priv_key = serialization.load_der_private_key(b64decode(private_key), password=None, backend=default_backend())
+            self.priv_key = serialization.load_der_private_key(private_key.encode('latin-1'), password=None, backend=default_backend())
         else:
             self.priv_key = None
 
@@ -1098,17 +1098,17 @@ class AsymmetricEncryption:
             key_size=key_size,
             backend=default_backend()
         )
-        self.private_key = b64encode(self.priv_key.private_bytes(
+        self.private_key = self.priv_key.private_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption()
-        )).decode('utf-8')
+        ).decode('latin-1')
         
         self.publ_key = self.priv_key.public_key()
-        self.public_key = b64encode(self.publ_key.public_bytes(
+        self.public_key = self.publ_key.public_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )).decode('utf-8')
+        ).decode('latin-1')
 
         return self
 
@@ -1260,6 +1260,11 @@ class ArgumentValidator:
         return True, None
     
     def hashed_password(hashed_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+        """
+        Validates a password hash, whether it was specified, whether it has the correct length and whether it contains hash characters
+
+        :param hashed_password: The hashed password (Optional)
+        """
 
         if hashed_password is None:
             return False, {"status_code": 400, "error": "Parameter 'hashed_password' is None."}
@@ -1268,3 +1273,36 @@ class ArgumentValidator:
             return False, {"status_code": 400, "error": "Parameter 'hashed_password' has the wrong length."}
         if not re.match(r"^[\w+/]+=+\/\/[0-9a-fA-F]+$", hashed_password):
             return False, {"status_code": 400, "error": "Parameter 'hashed_password' contains characters that do not belong in a hash."}
+        
+        return True, None
+
+    def hashed_chat_password(hashed_chat_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+        """
+        Validates a chat password hash, whether it has the correct length and whether it contains hash characters
+
+        :param hashed_chat_password: The hashed password (Optional)
+        """
+
+        # hashed_chat_password = Hashing().hash(chat_password, hash_length=16)
+        if len(hashed_chat_password) != 90:
+            return False, {"status_code": 400, "error": "Parameter 'hashed_chat_password' has the wrong length."}
+        if not re.match(r"^[\w+/]+=+\/\/[0-9a-fA-F]+$", hashed_chat_password):
+            return False, {"status_code": 400, "error": "Parameter 'hashed_chat_password' contains characters that do not belong in a hash."}
+        
+        return True, None
+    
+    def public_key(public_key: Optional[str] = None):#
+        """
+        
+        """
+
+        if public_key is None:
+            return False, {"status_code": 400, "error": "Parameter 'public_key' is None."}
+        if len(public_key) < 294 or len(public_key) > 550:
+            return False, {"status_code": 400, "error": "Parameter 'public_key' is to " + ("short" if len(public_key) < 294 else "long") + "."}
+        try:
+            serialization.load_der_public_key(public_key.encode('latin-1'), backend=default_backend())
+        except:
+            return False, {"status_code": 400, "error": "The public key given in the Parameter 'public_key' could not be loaded"}
+        
+        return True, None
