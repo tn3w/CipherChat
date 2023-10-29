@@ -18,6 +18,7 @@ from stem import control
 import stem
 from rich.progress import Progress
 import secrets
+import hashlib
 from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization, padding as sym_padding
@@ -42,8 +43,13 @@ TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
 NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
 
 BRIDGES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "bridges.conf")
+
+
+# Service Paths
 SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
 DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
+USERS_HIDDEN_SERVICE_PATH = os.path.join(DATA_DIR_PATH, "users-hiddenservice.json")
+
 
 # GnuPG
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
@@ -119,6 +125,7 @@ PACKAGE_MANAGERS = [
     {"version_command": "emerge --version", "installation_command": "emerge", "update_command": "emerge --sync"},
     {"version_command": "eopkg --version", "installation_command": "eopkg install", "update_command": "eopkg up"}
 ]
+
 
 console = Console()
 
@@ -273,6 +280,23 @@ def is_password_save(password: str) -> Tuple[bool, Optional[str]]:
         return False, "[Error] Your password does not contain a lowercase letter."
     elif not re.search(r'[!@#$%^&*()_+{}\[\]:;<>,.?~\\]', password):
         return False, "[Error] Your password does not contain any special characters."
+    
+    password_sha1_hash = hashlib.sha1(password.encode()).hexdigest()
+    hash_prefix = password_sha1_hash[:5]
+    
+    try:
+        response = requests.get(f"https://api.pwnedpasswords.com/range/{hash_prefix}")
+    except:
+        pass
+    else:
+        if response.status_code == 200:
+            response_content = response.text
+
+            for sha1_hash in response_content.split("\n"):
+                sha1_hash = sha1_hash.split(":")[0]
+                if sha1_hash == password_sha1_hash:
+                    return False, "[Error] Your password was found in a data leak."
+
     return True, None
 
 
@@ -287,6 +311,51 @@ def shorten_text(text: str, length: int) -> str:
     if len(text) > length:
         text = text[:length] + "..."
     return text
+
+
+file_locks = dict()
+
+
+class JSON:
+    "Class for loading / saving JavaScript Object Notation (= JSON)"
+
+    def load(file_name: str, default: Union[dict, list] = dict()) -> Union[dict, list]:
+        """
+        Function to load a JSON file securely.
+
+        :param file_name: The JSON file you want to load
+        :param default: Returned if no data was found
+        """
+
+        if not os.path.isfile(file_name):
+            return default
+        
+        if file_name not in file_locks:
+            file_locks[file_name] = threading.Lock()
+
+        with file_locks[file_name]:
+            with open(file_name, "r") as file:
+                data = json.load(file)
+            return data
+        
+    def dump(data: Union[dict, list], file_name: str) -> None:
+        """
+        Function to save a JSON file securely.
+        
+        :param data: The data to be stored should be either dict or list
+        :param file_name: The file to save to
+        """
+
+        file_directory = os.path.dirname(file_name)
+        if not os.path.isdir(file_directory):
+            raise FileNotFoundError("Directory '" + file_directory + "' does not exist.")
+        
+        if file_name not in file_locks:
+            file_locks[file_name] = threading.Lock()
+
+        with file_locks[file_name]:
+            with open(file_name, "w") as file:
+                json.dump(data, file)
 
 
 class SecureDelete:
@@ -792,6 +861,60 @@ class Tor:
         return new_session
 
 
+class FastHashing:
+    "Implementation for fast hashing"
+
+    def __init__(self, salt: Optional[str] = None, without_salt: bool = False):
+        """
+        :param salt: The salt, makes the hashing process more secure (Optional)
+        :param without_salt: If True, no salt is added to the hash
+        """
+
+        self.salt = salt
+        self.without_salt = without_salt
+    
+    def hash(self, plain_text: str, hash_length: int = 8) -> str:
+        """
+        Function to hash a plaintext
+
+        :param plain_text: The text to be hashed
+        :param hash_length: The length of the returned hashed value
+        """
+
+        if not self.without_salt:
+            salt = self.salt
+            if salt is None:
+                salt = secrets.token_hex(hash_length)
+            plain_text = salt + plain_text
+        
+        hash_object = hashlib.sha256(plain_text.encode())
+        hex_dig = hash_object.hexdigest()
+        
+        if not self.without_salt:
+            hex_dig += "//" + salt
+        return hex_dig
+    
+    def compare(self, plain_text: str, hash: str) -> bool:
+        """
+        Compares a plaintext with a hashed value
+
+        :param plain_text: The text that was hashed
+        :param hash: The hashed value
+        """
+        
+        salt = None
+        if not self.without_salt:
+            salt = self.salt
+            if "//" in hash:
+                hash, salt = hash.split("//")
+        
+        hash_length = len(hash)
+
+        comparison_hash = FastHashing(salt=salt, without_salt = self.without_salt).hash(plain_text, hash_length = hash_length).split("//")[0]
+
+        return comparison_hash == hash
+
+
 class Hashing:
     "Implementation of secure hashing with SHA256 and 200000 iterations"
 
@@ -1103,3 +1226,45 @@ class AsymmetricEncryption:
             return True
         except Exception:
             return False
+
+
+class ArgumentValidator:
+    "Contains functions for validating arguments and credentials"
+
+    def username(username: Optional[str] = None, is_register: bool = True) -> Tuple[bool, Optional[dict]]:
+        """
+        Validates a username if it was specified, if its length is between 4 - 15, if it contains only the characters A-Z, a-z, 0-9, _ and if it already exists
+
+        :param username: The username (Optional)
+        :param is_register: If True, it is assumed that the given username should not exist yet.
+        """
+
+        if username is None:
+            return False, {"status_code": 400, "error": "Parameter 'username' is None."}
+        if len(username) < 4 or len(username) > 15:
+            return False, {"status_code": 400, "error": "Parameter 'username' is to " + ("short" if len(username) < 4 else "long") + "."}
+        if re.search(r"[^\w]", username):
+            return False, {"status_code": 400, "error": "Parameter 'username' contains characters that do not belong in a username."}
+        
+        users = JSON.load(USERS_HIDDEN_SERVICE_PATH)
+
+        for hashed_username, _ in users:
+            comparison = FastHashing().compare(username, hashed_username)
+
+            if comparison and is_register:
+                return False, {"status_code": 400, "error": "The given username in Parameter 'username' exist"}
+            
+        if not is_register:
+            return False, {"status_code": 400, "error": "The given username in Parameter 'username' does not exist"}
+        
+        return True, None
+    
+    def hashed_password(hashed_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
+
+        if hashed_password is None:
+            return False, {"status_code": 400, "error": "Parameter 'hashed_password' is None."}
+        # hashed_password = Hashing().hash(password, hash_length=16)
+        if len(hashed_password) != 90:
+            return False, {"status_code": 400, "error": "Parameter 'hashed_password' has the wrong length."}
+        if not re.match(r"^[\w+/]+=+\/\/[0-9a-fA-F]+$", hashed_password):
+            return False, {"status_code": 400, "error": "Parameter 'hashed_password' contains characters that do not belong in a hash."}

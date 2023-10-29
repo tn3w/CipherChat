@@ -4,10 +4,11 @@ if __name__ != "__main__":
     exit()
 
 import os
+import re
 import json
-from tools import Tor, clear_console, get_system_architecture, VERSION
+from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator
 from rich.console import Console
-from flask import Flask
+from flask import Flask, request
 import logging
 
 SYSTEM, MACHINE = get_system_architecture()
@@ -86,5 +87,26 @@ log.setLevel(logging.WARNING)
 @app.route("/ping")
 def ping():
     return "Pong! CipherChat Chat Service " + str(VERSION)
+
+@app.route("/api/register_captcha", methods = ["POST"])
+def api_register_captcha():
+    if not request.method == "POST":
+        return {"status_code": 400, "error": "Invalid Request method"}
+    if not request.is_json:
+        return {"status_code": 400, "error": "No valid data given as json"}
+    
+    data = request.json
+
+    username = data.get("username")
+    hashed_password = data.get("hashed_password")
+    hashed_chat_password = data.get("hashed_chat_password")
+    public_key = data.get("public_key")
+    crypted_private_key = data.get("crypted_private_key")
+
+    is_valid_username, username_error = ArgumentValidator.username(username)
+    if not is_valid_username:
+        return username_error
+    
+    
 
 app.run(host = "localhost", port = HIDDEN_PORT)
