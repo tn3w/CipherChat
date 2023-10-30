@@ -362,8 +362,9 @@ class JSON:
 
 
 # Languages
-LANGUAGES = JSON.load(os.path.join(NEEDED_DIR_PATH, "languages.json"), [])
+LANGUAGES = JSON.load(os.path.join(NEEDED_DIR_PATH, "languages.json"), list())
 LANGUAGE_CODES = [language["code"] for language in LANGUAGES]
+TRANSLATIONS_PATH = os.path.join(NEEDED_DIR_PATH, "translations.json")
 
 
 class SecureDelete:
@@ -377,8 +378,8 @@ class SecureDelete:
         :param directory_path: The path to the directory
         """
 
-        all_files = []
-        all_directories = []
+        all_files = list()
+        all_directories = list()
 
         def list_files_recursive(root, depth):
             for item in os.listdir(root):
@@ -635,7 +636,7 @@ class Tor:
                         with rf.open(file_in_rar) as readable_file:
                             ips = readable_file.read().decode('utf-8')
                     
-                    _ips = []
+                    _ips = list()
                     for ip in ips.split("\n"):
                         ip = ip.strip()
                         if not ip == "":
@@ -656,7 +657,7 @@ class Tor:
                     with open(file_path, "r") as readable_file:
                         ips = readable_file.read()
 
-                    _ips = []
+                    _ips = list()
                     for ip in ips.split("\n"):
                         ip = ip.strip()
                         if not ip == "":
@@ -1401,7 +1402,7 @@ class WebPage:
         return html
     
     @staticmethod
-    def get_client_language(default: str = "en"):
+    def get_client_language(default: str = "en") -> str:
         """
         Function to get the language code of the client
 
@@ -1414,3 +1415,24 @@ class WebPage:
             return preferred_language
         
         return default
+    
+    @staticmethod
+    def _translate_text(text_to_translate: str, from_lang: str, to_lang: str):
+        """
+        Function to translate a text based on a translation file
+
+        :param text_to_translate: The text to translate
+        :param from_lang: The language of the text to be translated
+        :param to_lang: Into which language the text should be translated
+        """
+
+        if from_lang == to_lang:
+            return text_to_translate
+        
+        translations = JSON.load(TRANSLATIONS_PATH, list())
+        
+        for translation in translations:
+            if translation["text_to_translate"] == text_to_translate and translation["from_lang"] == from_lang and translation["to_lang"] == to_lang:
+                return translation["translated_output"]
+        
+        return text_to_translate
