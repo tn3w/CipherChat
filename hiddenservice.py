@@ -4,8 +4,6 @@ if __name__ != "__main__":
     exit()
 
 import os
-import re
-import json
 from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON
 from rich.console import Console
 from flask import Flask, request
