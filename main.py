@@ -27,28 +27,32 @@ TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
 
 BRIDGES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "bridges.conf")
 
+
 # Service Files
 SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
 DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
+
 
 # Client Files
 KEY_FILE_PATH_CONF_PATH = os.path.join(DATA_DIR_PATH, "keyfile-path.conf")
 PERSISTENT_STORAGE_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "persistent-storage.conf")
 SERVICES_CONF_PATH = os.path.join(DATA_DIR_PATH, "services.conf")
 
+
 console = Console()
 
 SYSTEM, MACHINE = get_system_architecture()
+
 
 if not SYSTEM in ["Windows", "Linux", "macOS"]:
     clear_console()
     console.print(f"[red][Error] Unfortunately, there is no version of CipherChat for your operating system `{SYSTEM}`.")
     exit()
 
+
 TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
 TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc", "Linux": "/etc/tor/torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
-
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
          "The development of Tor has received funding from various government agencies, including the U.S. government, due to its importance in promoting online privacy and security.", "Tor allows websites to operate as hidden services, which are only accessible through the Tor network. This has led to the creation of websites that can't be easily traced or taken down.", "Websites on the Tor network often have addresses ending in '.onion' instead of the usual '.com' or '.org', adding to the uniqueness of the network.", "The strength of the Tor network lies in its thousands of volunteer-run relays worldwide. Users' data is passed through multiple relays, making it extremely difficult for anyone to trace their online activities."]
 
