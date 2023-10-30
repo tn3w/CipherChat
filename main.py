@@ -40,6 +40,11 @@ console = Console()
 
 SYSTEM, MACHINE = get_system_architecture()
 
+if not SYSTEM in ["Windows", "Linux", "macOS"]:
+    clear_console()
+    console.print(f"[red][Error] Unfortunately, there is no version of CipherChat for your operating system `{SYSTEM}`.")
+    exit()
+
 TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
 TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc", "Linux": "/etc/tor/torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
