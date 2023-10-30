@@ -26,6 +26,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
 from flask import request
+from jinja2 import Environment, select_autoescape, Undefined
 
 VERSION = 1.13
 
@@ -1365,6 +1366,14 @@ class ArgumentValidator:
             return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is not hexadecimal."}
         return True, None
 
+
+class SilentUndefined(Undefined):
+    "Class to not get an error when specifying a non-existent argument"
+
+    def _fail_with_undefined_error(self, *args, **kwargs):
+        return None
+
+
 class WebPage:
     "Class with useful tools for WebPages"
 
@@ -1489,3 +1498,40 @@ class WebPage:
         
         translated_html = str(soup).replace("&lt;", "<").replace("&gt;", ">")
         return translated_html
+    
+    @staticmethod
+    def render_template(file_path: Optional[str] = None, html: Optional[str] = None, **args) -> str:
+        """
+        Function to render a HTML template (= insert arguments / translation / minimization)
+
+        :param file_path: From which file HTML code should be loaded (Optional)
+        :param html: The content of the page as html (Optional)
+        :param args: Arguments to be inserted into the WebPage with Jinja2
+        """
+        
+        if file_path is None and html is None:
+            raise ValueError("Arguments 'file_path' and 'html' are None")
+        
+        if not file_path is None:
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f"File `{file_path}` does not exist")
+        
+        env = Environment(
+            autoescape=select_autoescape(['html', 'xml']),
+            undefined=SilentUndefined
+        )
+
+        if html is None:
+            with open(file_path, "r") as file:
+                html = file.read()
+        
+        template = env.from_string(html)
+
+        client_language = WebPage.get_client_language()
+        args["language"] = client_language
+
+        html = template.render(**args)
+        html = WebPage.translate(html, "en", client_language)
+        html = WebPage.minimize(html)
+
+        return html

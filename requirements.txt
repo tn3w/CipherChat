@@ -8,3 +8,4 @@ distro
 rarfile
 pysocks
 qrcode
+Jinja2
