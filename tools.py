@@ -27,6 +27,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
 from flask import request
 from jinja2 import Environment, select_autoescape, Undefined
+from captcha.image import ImageCaptcha
 
 VERSION = 1.13
 
@@ -1527,3 +1528,12 @@ class WebPage:
         html = WebPage.minimize(html)
 
         return html
+
+class Captcha:
+
+    def __init__(self, data: dict):
+        self.data = data
+    
+    def generate(self):
+        minimized_data = json.dumps(self.data, indent = None, separators = (',', ':'))
+
