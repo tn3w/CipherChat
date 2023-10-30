@@ -711,10 +711,7 @@ class Tor:
 
         if not use_build_in and not type_of_bridge == "meek_lite":
             file_path = os.path.join(NEEDED_DIR_PATH, type_of_bridge + ".json")
-
-            if os.path.isfile(file_path):
-                with open(file_path, "r") as readable_file:
-                    file_bridges = json.load(readable_file)
+            file_bridges = JSON.load(file_path, [])
             
             bridges = list()
 
@@ -779,15 +776,10 @@ class Tor:
     def get_hidden_service_info() -> (Optional[str], int):
         "Retrieves hidden service information from a configuration file."
 
-        hidden_dir = None
-        hidden_port = 8080
+        service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
-        if os.path.isfile(SERVICE_SETUP_CONF_PATH):
-            with open(SERVICE_SETUP_CONF_PATH, "r") as readable_file:
-                service_setup_info = json.load(readable_file)
-
-            hidden_dir = service_setup_info.get("hidden_service_dir", None)
-            hidden_port = service_setup_info.get("hidden_service_port", 8080)
+        hidden_dir = service_setup_info.get("hidden_service_dir", None)
+        hidden_port = service_setup_info.get("hidden_service_port", 8080)
         
         return hidden_dir, hidden_port
 
@@ -1508,7 +1500,7 @@ class WebPage:
         :param html: The content of the page as html (Optional)
         :param args: Arguments to be inserted into the WebPage with Jinja2
         """
-        
+
         if file_path is None and html is None:
             raise ValueError("Arguments 'file_path' and 'html' are None")
         

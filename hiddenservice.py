@@ -6,7 +6,7 @@ if __name__ != "__main__":
 import os
 import re
 import json
-from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator
+from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON
 from rich.console import Console
 from flask import Flask, request
 import logging
@@ -22,11 +22,7 @@ DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice"
 
 console = Console()
 
-if os.path.isfile(SERVICE_SETUP_CONF_PATH):
-    with open(SERVICE_SETUP_CONF_PATH, "r") as readable_file:
-        service_setup_info = json.load(readable_file)
-else:
-    service_setup_info = {}
+service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
 if service_setup_info.get("restart_tor", True):
     if Tor.is_tor_daemon_alive():
