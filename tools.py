@@ -1417,7 +1417,7 @@ class WebPage:
         return default
     
     @staticmethod
-    def _translate_text(text_to_translate: str, from_lang: str, to_lang: str):
+    def _translate_text(text_to_translate: str, from_lang: str, to_lang: str) -> str:
         """
         Function to translate a text based on a translation file
 
@@ -1436,3 +1436,56 @@ class WebPage:
                 return translation["translated_output"]
         
         return text_to_translate
+    
+    @staticmethod
+    def translate(html: str, from_lang: str, to_lang: str) -> str:
+        """
+        Function to translate a page into the correct language
+
+        :param html: The content of the page as html
+        :param from_lang: The language of the text to be translated
+        :param to_lang: Into which language the text should be translated
+        """
+        
+        soup = BeautifulSoup(html, 'html.parser')
+
+        def translate_htmlified_text(html_tag):
+            try:
+                new_soup = BeautifulSoup(str(html_tag), 'html.parser')
+                outer_tag = new_soup.find(lambda tag: tag.find_all(recursive=False))
+
+                text = ''.join(str(tag) for tag in outer_tag.contents)
+            except:
+                text = html_tag.text
+            
+            if "<" in text:
+                pattern = r'(<.*?>)(.*?)(<\/.*?>)'
+        
+                def replace(match):
+                    tag_open, content, tag_close = match.groups()
+                    processed_content = WebPage._translate_text(content, from_lang, to_lang)
+                    return f'{tag_open}{processed_content}{tag_close}'
+                
+                modified_text = re.sub(pattern, replace, text)
+            else:
+                modified_text = WebPage._translate_text(text, from_lang, to_lang)
+            return modified_text
+        
+        tags = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'p', 'button'])
+        for tag in tags:
+            if 'ntr' not in tag.attrs:
+                tag.string = translate_htmlified_text(tag)
+        
+        inputs = soup.find_all('input')
+        for input_tag in inputs:
+            if input_tag.has_attr('placeholder') and 'ntr' not in input_tag.attrs:
+                input_tag['placeholder'] = WebPage._translate_text(input_tag['placeholder'], from_lang, to_lang)
+        
+        head_tag = soup.find('head')
+        if head_tag:
+            title_element = head_tag.find('title')
+            if title_element:
+                title_element.string = WebPage._translate_text(title_element.text, from_lang, to_lang)
+        
+        translated_html = str(soup).replace("&lt;", "<").replace("&gt;", ">")
+        return translated_html
