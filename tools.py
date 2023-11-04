@@ -1530,10 +1530,36 @@ class WebPage:
         return html
 
 class Captcha:
+    "Class to generate and verify a captcha"
 
-    def __init__(self, data: dict):
+    def __init__(self, captcha_secret: str, data: dict):
+        self.captcha_secret = captcha_secret
         self.data = data
     
-    def generate(self):
-        minimized_data = json.dumps(self.data, indent = None, separators = (',', ':'))
+    def generate(self) -> Tuple[str, str]:
+        image_captcha_code = generate_random_string(secrets.choice([8,9,10,11,12]), with_punctuation=False).upper()
 
+        minimized_data = json.dumps(self.data, indent = None, separators = (',', ':'))
+        captcha_prove = image_captcha_code + "//" + minimized_data
+
+        crypted_captcha_prove = SymmetricEncryption(self.captcha_secret).encrypt(captcha_prove)
+
+        image_captcha = ImageCaptcha(width=320, height=120, fonts=[
+            os.path.join(NEEDED_DIR_PATH, "Comic_Sans_MS.ttf"),
+            os.path.join(NEEDED_DIR_PATH, "DroidSansMono.ttf"),
+            os.path.join(NEEDED_DIR_PATH, "Helvetica.ttf")
+        ])
+
+        captcha_image = image_captcha.generate(image_captcha_code)
+        captcha_image_data = b64encode(captcha_image.getvalue()).decode('utf-8')
+        captcha_image_data = "data:image/png;base64," + captcha_image_data
+
+        return captcha_image_data, crypted_captcha_prove
+    
+    def verify(self, client_input: str, crypted_captcha_prove: str) -> bool:
+        captcha_prove = SymmetricEncryption(self.captcha_secret).decrypt(crypted_captcha_prove)
+
+        captcha_code, data = captcha_prove.split("//")
+        data = json.loads(data)
+
+        return bool(not (data != self.data or captcha_code != client_input))
