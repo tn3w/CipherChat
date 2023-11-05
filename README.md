@@ -30,7 +30,7 @@ B. (Recommended for TOR users) Install via ZIP
  1. [Click here](https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip) to download the ZIP file
  2. Extract the downloaded ZIP packet with a packet manager or with the following command on Linux:
     ```bash
-    unzip master.zip -d CipherChat
+    unzip CipherChat-master.zip -d CipherChat
     ```
  3. Go to the extracted folder
     ```bash
