@@ -842,12 +842,14 @@ class Tor:
                     return True
                 else:
                     console.log("[red][Error] Tor is probably not installed.")
-        except stem.SocketError as socket_error:
+        except (Exception) as socket_error:
             console.log(f"[red][Error] Error connecting to the Tor Control Port '{socket_error}'")
         
         for process in psutil.process_iter(attrs=['pid', 'name']):
             if 'tor' in process.name():
                 return True
+        
+        return False
 
     @staticmethod
     def get_request_session() -> requests.session:
