@@ -1,7 +1,7 @@
 rich
 stem
 bs4
-gnupg
+python-gnupg
 cryptography
 flask
 distro
