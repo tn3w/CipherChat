@@ -4,7 +4,7 @@ if __name__ != "__main__":
     exit()
 
 import os
-from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON
+from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON, Captcha, generate_random_string
 from rich.console import Console
 from flask import Flask, request
 import logging
@@ -73,6 +73,8 @@ except Exception as e:
 
 console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
 
+CAPTCHA_SECRET = generate_random_string(32)
+
 app = Flask("CipherChat")
 
 log = logging.getLogger('werkzeug')
@@ -123,5 +125,21 @@ def api_register_captcha():
     is_valid_two_factor_token, two_factor_token_error = ArgumentValidator.two_factor_token(two_factor_token)
     if not is_valid_two_factor_token:
         return two_factor_token_error
+    
+    data = {
+        "username": username,
+        "hashed_password": hashed_password,
+        "hashed_chat_password": hashed_chat_password,
+        "public_key": public_key,
+        "crypted_private_key": crypted_private_key,
+        "two_factor_token": two_factor_token
+    }
+
+    captcha_image_data, crypted_captcha_prove = Captcha(CAPTCHA_SECRET).generate()
+    
+    return {
+        "image_data": captcha_image_data,
+        "captcha_prove": crypted_captcha_prove
+    }
 
 app.run(host = "localhost", port = HIDDEN_PORT)
