@@ -1,7 +1,7 @@
 <div class="center">
     <img alt="Logo" src="https://github.com/tn3w/CipherChat/releases/download/iu/CipherChat.png">
 </div>
-<p align="center"><a rel="noreferrer noopener" href="http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/CipherChat"><img alt="Backup 1" src="https://img.shields.io/badge/Backup%201-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/CipherChat"><img alt="Backup 2" src="https://img.shields.io/badge/Backup%202-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/CipherChat?as_zip=1"><img alt="Backup 3" src="https://img.shields.io/badge/Backup%203-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>
+<p align="center"><a rel="noreferrer noopener" href="http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/CipherChat"><img alt="Backup 1" src="https://img.shields.io/badge/Backup%201-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/CipherChat"><img alt="Backup 2" src="https://img.shields.io/badge/Backup%202-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>  <a rel="noreferrer noopener" href="http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/CipherChat"><img alt="Backup 3" src="https://img.shields.io/badge/Backup%203-141e24.svg?&style=for-the-badge&logo=torproject&logoColor=white"></a>
 
 # CipherChat
 CipherChat is a console tool for secure and anonymous chatting with other people.
@@ -28,7 +28,7 @@ A. Use git
 <br>
 
 B. (Recommended for TOR users) Install via ZIP
- 1. [Click here](https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip) to download the ZIP file as a normal user or [here](http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/CipherChat?as_zip=1) [Mirror 1](http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/CipherChat?as_zip=1) [Mirror 2](http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/CipherChat) as a Tor user
+ 1. [Click here](https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip) to download the ZIP file as a normal user or [here](http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/CipherChat?as_zip=1) [Mirror 1](http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/CipherChat?as_zip=1) [Mirror 2](http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/CipherChat?as_zip=1) as a Tor user
  2. Extract the downloaded ZIP packet with a packet manager or with the following command on Linux:
     ```bash
     unzip CipherChat-master.zip -d CipherChat
