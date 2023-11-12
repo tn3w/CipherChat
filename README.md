@@ -28,7 +28,7 @@ A. Use git
 <br>
 
 B. (Recommended for TOR users) Install via ZIP
- 1. [Click here](https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip) to download the ZIP file
+ 1. [Click here](https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip) to download the ZIP file as a normal user or [here](http://tn3wtor4vgnrimugptubpaqsf2gc4pcsktknkxt74w7p5yzbt7rwrkid.onion/projects/CipherChat?as_zip=1) [Mirror 1](http://tn3wvjimrn3hydx4u52kzfnkgu6kffef2js27ewlhdf5htulno34vqad.onion/projects/CipherChat?as_zip=1) [Mirror 2](http://tn3wtor7cfz3epmuetrhkj3mangjxqpd47lxxicfwwdwja6dwq6dbdad.onion/projects/CipherChat) as a Tor user
  2. Extract the downloaded ZIP packet with a packet manager or with the following command on Linux:
     ```bash
     unzip CipherChat-master.zip -d CipherChat
