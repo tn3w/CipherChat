@@ -4,7 +4,7 @@ if __name__ != "__main__":
     exit()
 
 import os
-from tools import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON, Captcha, generate_random_string
+from .utils import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON, Captcha, generate_random_string
 from rich.console import Console
 from flask import Flask, request
 import logging

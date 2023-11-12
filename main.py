@@ -13,7 +13,7 @@ from getpass import getpass
 import secrets
 import re
 import json
-from tools import get_system_architecture, clear_console, is_password_save, get_password_strength, generate_random_string,\
+from .utils import get_system_architecture, clear_console, is_password_save, get_password_strength, generate_random_string,\
     download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption, VERSION
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
