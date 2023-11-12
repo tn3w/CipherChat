@@ -33,6 +33,10 @@ B. (Recommended for TOR users) Install via ZIP
     ```bash
     unzip CipherChat-master.zip -d CipherChat
     ```
+    Use the following if you downloaded it from the Tor Hidden Service:
+    ```bash
+    unzip CipherChat.zip -d CipherChat
+    ```
  3. Go to the extracted folder
     ```bash
     cd CipherChat
