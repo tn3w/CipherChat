@@ -150,29 +150,40 @@ else:
             with open(signature_file_path, 'rb') as signature_file:
                 verification = gpg.verify_file(signature_file, installation_file_path)
         
+        is_valid = True
+
         if verification.valid:
             CONSOLE.log("[green]~ The signature is valid")
         else:
-            raise Exception("[Error] The signature does not seem to be valid, which may be due to The Onion Router installation file not being downloaded properly or torproject.org being infected.")
+            CONSOLE.log(f"[red][Error] The signature does not seem to be valid, the following error has occurred: `{verification.status}`\n")
 
-        with CONSOLE.status("[bold green]Installation file opened, waiting for the installation wizard to finish..."):
-            if SYSTEM == "Windows":
-                installation_process = subprocess.Popen([installation_file_path])
-                installation_process.wait()
-            else:
-                mount_info = subprocess.check_output(["hdiutil", "attach", "-plist", installation_file_path])
-                mount_info = mount_info.decode("utf-8")
+            do_continue = ("Do you still want to start the installation? [y or n] ")
+            if not {"y": True, "yes": True}.get(do_continue.lower(), False):
+                is_valid = False
 
-                mount_info_dict = plistlib.loads(mount_info)
-                mount_point = mount_info_dict["system-entities"][0]["mount-point"]
+        if is_valid:
+            with CONSOLE.status("[bold green]Installation file opened, waiting for the installation wizard to finish..."):
+                if SYSTEM == "Windows":
+                    installation_process = subprocess.Popen([installation_file_path])
+                    installation_process.wait()
+                else:
+                    mount_info = subprocess.check_output(["hdiutil", "attach", "-plist", installation_file_path])
+                    mount_info = mount_info.decode("utf-8")
 
-                subprocess.run(["cp", "-R", f"{mount_point}/Tor.app", "/Applications"])
+                    mount_info_dict = plistlib.loads(mount_info)
+                    mount_point = mount_info_dict["system-entities"][0]["mount-point"]
 
-                subprocess.run(["hdiutil", "detach", mount_point])
-        CONSOLE.log("[green]The Hidden Router Installation Completed")
+                    subprocess.run(["cp", "-R", f"{mount_point}/Tor.app", "/Applications"])
+
+                    subprocess.run(["hdiutil", "detach", mount_point])
+            CONSOLE.log("[green]The Hidden Router Installation Completed")
 
         with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
             SecureDelete.directory(TEMP_DIR_PATH)
+        
+        if not is_valid:
+            CONSOLE.log("[red]Installation not completed, please install manually via https://www.torproject.org/download")
+            exit()
 
 
 # Running Tor Hidden Service
