@@ -19,7 +19,7 @@ from utils import clear_console, is_password_save, get_password_strength, genera
 
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
-    os.system('cls' if os.name == 'nt' else 'clear')
+    clear_console()
     print("CipherChat Version", VERSION)
     exit()
 
