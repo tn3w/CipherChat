@@ -365,8 +365,10 @@ class Linux:
         
         :param package_name: Name of the Linux packet
         """
-
-        installation_command, update_command = Linux.get_package_manager() # FIXME: Packet Manager should be saved
+        
+        with CONSOLE.status("[green]Trying to get package manager..."):
+            installation_command, update_command = Linux.get_package_manager()
+        CONSOLE.log(f"[green]~ Package Manager is `{installation_command.split(' ')[0]}`")
 
         if not None in [installation_command, update_command]:
             try:
@@ -375,7 +377,7 @@ class Linux:
             except Exception as e:
                 CONSOLE.log(f"[red]Error using update Command while installing linux package '{package_name}': '{e}'")
             
-            install_process = subprocess.Popen(f"sudo {installation_command} {package_name}", shell=True)
+            install_process = subprocess.Popen(f"sudo {installation_command} {package_name} -y", shell=True)
             install_process.wait()
         
         else:

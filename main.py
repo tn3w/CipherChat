@@ -116,12 +116,11 @@ if os.path.isfile(TOR_PATH):
     CONSOLE.log("[green]~ The Onion Router exists")
 else:
     if SYSTEM == "Linux":
-        with CONSOLE.status("[bold green]Try to install Tor via the Console..."):
-            try:
-                Linux.install_package("tor")
-            except Exception as e:
-                CONSOLE.log(f"[red]TOR could not be installed because of the following error: '{e}'")
-                exit()
+        try:
+            Linux.install_package("tor")
+        except Exception as e:
+            CONSOLE.log(f"[red]TOR could not be installed because of the following error: '{e}'")
+            exit()
     elif SYSTEM in ["Windows", "macOS"]:
         print("Did you know?", secrets.choice(FACTS), "\n")
         with CONSOLE.status("[bold green]Trying to get the download links for Tor..."):
