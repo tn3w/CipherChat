@@ -13,9 +13,9 @@ from getpass import getpass
 import secrets
 import re
 import json
-from .cons import VERSION, SYSTEM, CONSOLE, DATA_DIR_PATH, CURRENT_DIR_PATH, BRIDGES_CONF_PATH, NEEDED_DIR_PATH, TEMP_DIR_PATH, TOR_PATH, FACTS, TOR_EXT,\
+from cons import VERSION, SYSTEM, CONSOLE, DATA_DIR_PATH, CURRENT_DIR_PATH, BRIDGES_CONF_PATH, NEEDED_DIR_PATH, TEMP_DIR_PATH, TOR_PATH, FACTS, TOR_EXT,\
     PERSISTENT_STORAGE_CONF_PATH, KEY_FILE_PATH_CONF_PATH, SERVICES_CONF_PATH, DEFAULT_BRIDGES_CONF
-from .utils import clear_console, is_password_save, get_password_strength, generate_random_string,\
+from utils import clear_console, is_password_save, get_password_strength, generate_random_string,\
     download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption
 
 
