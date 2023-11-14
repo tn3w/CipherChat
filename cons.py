@@ -102,25 +102,6 @@ PACKAGE_MANAGERS = [
     {"version_command": "eopkg --version", "installation_command": "eopkg install", "update_command": "eopkg up"}
 ]
 
-def get_gnupg_path() -> str:
-    "Function to query the GnuPG path"
-
-    gnupg_path = {"Windows": fr"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe", "macOS": "/usr/local/bin/gpg"}.get(SYSTEM, "/usr/bin/gpg")
-
-    command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
-
-    try:
-        result = subprocess.check_output(command, shell=True, text=True)
-        gnupg_path = result.strip()
-    except:
-        pass
-    
-    return gnupg_path
-
-# GnuPG
-KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
-GNUPG_PATH = get_gnupg_path()
-
 def get_system_architecture() -> Tuple[str, str]:
     "Function to get the correct system information"
 
@@ -140,6 +121,25 @@ def get_system_architecture() -> Tuple[str, str]:
     return system, machine
 
 SYSTEM, MACHINE = get_system_architecture()
+
+def get_gnupg_path() -> str:
+    "Function to query the GnuPG path"
+
+    gnupg_path = {"Windows": fr"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe", "macOS": "/usr/local/bin/gpg"}.get(SYSTEM, "/usr/bin/gpg")
+
+    command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
+
+    try:
+        result = subprocess.check_output(command, shell=True, text=True)
+        gnupg_path = result.strip()
+    except:
+        pass
+    
+    return gnupg_path
+
+# GnuPG
+KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
+GNUPG_PATH = get_gnupg_path()
 
 # Tor
 TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
