@@ -10,3 +10,4 @@ pysocks
 qrcode
 Jinja2
 captcha
+rarfile

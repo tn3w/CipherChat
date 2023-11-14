@@ -13,48 +13,15 @@ from getpass import getpass
 import secrets
 import re
 import json
-from .utils import get_system_architecture, clear_console, is_password_save, get_password_strength, generate_random_string,\
-    download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption, VERSION
+from .cons import VERSION, SYSTEM, CONSOLE, DATA_DIR_PATH, CURRENT_DIR_PATH, BRIDGES_CONF_PATH, NEEDED_DIR_PATH, TEMP_DIR_PATH, TOR_PATH, FACTS, TOR_EXT,\
+    PERSISTENT_STORAGE_CONF_PATH, KEY_FILE_PATH_CONF_PATH, SERVICES_CONF_PATH, DEFAULT_BRIDGES_CONF
+from .utils import clear_console, is_password_save, get_password_strength, generate_random_string,\
+    download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption
+
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
     print("CipherChat Version", VERSION)
     exit()
-
-CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
-DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
-TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
-
-BRIDGES_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "bridges.conf")
-
-
-# Service Files
-SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
-DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
-
-
-# Client Files
-KEY_FILE_PATH_CONF_PATH = os.path.join(DATA_DIR_PATH, "keyfile-path.conf")
-PERSISTENT_STORAGE_CONF_PATH = os.path.join(NEEDED_DIR_PATH, "persistent-storage.conf")
-SERVICES_CONF_PATH = os.path.join(DATA_DIR_PATH, "services.conf")
-
-
-console = Console()
-
-SYSTEM, MACHINE = get_system_architecture()
-
-
-if not SYSTEM in ["Windows", "Linux", "macOS"]:
-    clear_console()
-    console.print(f"[red][Error] Unfortunately, there is no version of CipherChat for your operating system `{SYSTEM}`.")
-    exit()
-
-
-TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
-TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc", "Linux": "/etc/tor/torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
-TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
-FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
-         "The development of Tor has received funding from various government agencies, including the U.S. government, due to its importance in promoting online privacy and security.", "Tor allows websites to operate as hidden services, which are only accessible through the Tor network. This has led to the creation of websites that can't be easily traced or taken down.", "Websites on the Tor network often have addresses ending in '.onion' instead of the usual '.com' or '.org', adding to the uniqueness of the network.", "The strength of the Tor network lies in its thousands of volunteer-run relays worldwide. Users' data is passed through multiple relays, making it extremely difficult for anyone to trace their online activities."]
 
 
 if "-a" in ARGUMENTS or "--about" in ARGUMENTS:
@@ -71,13 +38,13 @@ if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
 
     start_time = time()
 
-    with console.status("[bold green]All files will be overwritten and deleted several times... (This can take several seconds)"):
+    with CONSOLE.status("[bold green]All files will be overwritten and deleted several times... (This can take several seconds)"):
         if os.path.isdir(delete_path):
             SecureDelete.directory(delete_path)
 
     end_time = time()
 
-    console.log("[green]Completed, all files are irrevocably deleted.","(took", end_time - start_time, "s)")
+    CONSOLE.log("[green]Completed, all files are irrevocably deleted.","(took", end_time - start_time, "s)")
     exit(0)
 
 
@@ -91,10 +58,13 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
     exit(0)
 
 
+if not SYSTEM in ["Windows", "Linux", "macOS"]:
+    clear_console()
+    CONSOLE.print(f"[red][Error] Unfortunately, there is no version of CipherChat for your operating system `{SYSTEM}`.")
+    exit()
+
+
 clear_console()
-
-
-DEFAULT_BRIDGES_CONF = {"build_in": False, "type": "obfs4"}
 
 
 # Choose what bridges to use
@@ -135,31 +105,31 @@ else:
     
     if not use_build_in:
         Tor.download_bridges()
-        with console.status("Processing Bridges..."):
+        with CONSOLE.status("Processing Bridges..."):
             Tor.process_bridges()
-        with console.status("[bold green]Cleaning up (This can take up to two minutes)..."):
+        with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
             SecureDelete.directory(TEMP_DIR_PATH, quite = True)
 
 
 # Install The Onion Router
 if os.path.isfile(TOR_PATH):
-    console.log("[green]~ The Onion Router exists")
+    CONSOLE.log("[green]~ The Onion Router exists")
 else:
     if SYSTEM == "Linux":
-        with console.status("[bold green]Try to install Tor via the Console..."):
+        with CONSOLE.status("[bold green]Try to install Tor via the Console..."):
             try:
                 Linux.install_package("tor")
             except Exception as e:
-                console.log(f"[red]TOR could not be installed because of the following error: '{e}'")
+                CONSOLE.log(f"[red]TOR could not be installed because of the following error: '{e}'")
                 exit()
     elif SYSTEM in ["Windows", "macOS"]:
         print("Did you know?", secrets.choice(FACTS), "\n")
-        with console.status("[bold green]Trying to get the download links for Tor..."):
+        with CONSOLE.status("[bold green]Trying to get the download links for Tor..."):
             download_link, signature_link = Tor.get_download_link()
         
         if download_link is None:
             raise Exception("[Error] Tor Browser could not be installed on your operating system, install it manually at https://www.torproject.org/download/ ")
-        console.log("[green]~ Downloaded Tor Links")
+        CONSOLE.log("[green]~ Downloaded Tor Links")
         
         if not os.path.isdir(TEMP_DIR_PATH):
             os.mkdir(TEMP_DIR_PATH)
@@ -171,23 +141,23 @@ else:
 
         download_file(signature_link, signature_file_path, "Tor Browser Signature")
 
-        with console.status("[bold green]Trying to get the PGP Key Name for The Onion Router..."):
+        with CONSOLE.status("[bold green]Trying to get the PGP Key Name for The Onion Router..."):
             key_name = GnuPG.search_key_name("Tor Browser Developers (signing key) <torbrowser@torproject.org>")
-        console.log("[green]~ Key Name received")
+        CONSOLE.log("[green]~ Key Name received")
         
         gpg = GnuPG.load_public_keys(key_name)
-        console.log("[green]~ Public Keys Loaded")
+        CONSOLE.log("[green]~ Public Keys Loaded")
 
-        with console.status("[bold green]Verify The Onion Router Installation File..."):
+        with CONSOLE.status("[bold green]Verify The Onion Router Installation File..."):
             with open(signature_file_path, 'rb') as signature_file:
                 verification = gpg.verify_file(signature_file, installation_file_path)
         
         if verification.valid:
-            console.log("[green]~ The signature is valid")
+            CONSOLE.log("[green]~ The signature is valid")
         else:
             raise Exception("[Error] The signature does not seem to be valid, which may be due to The Onion Router installation file not being downloaded properly or torproject.org being infected.")
 
-        with console.status("[bold green]Installation file opened, waiting for the installation wizard to finish..."):
+        with CONSOLE.status("[bold green]Installation file opened, waiting for the installation wizard to finish..."):
             if SYSTEM == "Windows":
                 installation_process = subprocess.Popen([installation_file_path])
                 installation_process.wait()
@@ -201,9 +171,9 @@ else:
                 subprocess.run(["cp", "-R", f"{mount_point}/Tor.app", "/Applications"])
 
                 subprocess.run(["hdiutil", "detach", mount_point])
-        console.log("[green]The Hidden Router Installation Completed")
+        CONSOLE.log("[green]The Hidden Router Installation Completed")
 
-        with console.status("[bold green]Cleaning up (This can take up to two minutes)..."):
+        with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
             SecureDelete.directory(TEMP_DIR_PATH)
 
 
@@ -312,19 +282,19 @@ if USE_PERSISTENT_STORAGE:
         if not os.path.isdir(DATA_DIR_PATH):
             os.mkdir(DATA_DIR_PATH)
 
-        with console.status("[bold green]Encrypting the Key File path..."):
+        with CONSOLE.status("[bold green]Encrypting the Key File path..."):
             crypted_key_file_path = SymmetricEncryption(master_password).encrypt(KEY_FILE_PATH)
 
-        with console.status("[bold green]Saving the Key File path..."):
+        with CONSOLE.status("[bold green]Saving the Key File path..."):
             with open(KEY_FILE_PATH_CONF_PATH, "w", encoding="utf-8") as writeable_file:
                 writeable_file.write(crypted_key_file_path)
 
     # Get Secret Key
     if not os.path.isfile(KEY_FILE_PATH):
-        with console.status("[bold green]Generate Secret Key..."):
+        with CONSOLE.status("[bold green]Generate Secret Key..."):
             SECRET_KEY = generate_random_string(512)
 
-        with console.status("[bold green]Encrypt Secret Key with Password..."):
+        with CONSOLE.status("[bold green]Encrypt Secret Key with Password..."):
             crypted_secret_key = SymmetricEncryption(master_password).encrypt(SECRET_KEY)
 
         try:
@@ -333,7 +303,7 @@ if USE_PERSISTENT_STORAGE:
         except:
             KEY_FILE_PATH = os.path.join(DATA_DIR_PATH, "keys.conf")
 
-        with console.status("[bold green]Saving the Secret Key..."):
+        with CONSOLE.status("[bold green]Saving the Secret Key..."):
             try:
                 with open(KEY_FILE_PATH, "w", encoding="utf-8") as writeable_file:
                     writeable_file.write(crypted_secret_key)
@@ -342,11 +312,11 @@ if USE_PERSISTENT_STORAGE:
                 with open(KEY_FILE_PATH, "w", encoding="utf-8") as writeable_file:
                     writeable_file.write(crypted_secret_key)
     else:
-        with console.status("[bold green]Loading the Encrypted Secret Key..."):
+        with CONSOLE.status("[bold green]Loading the Encrypted Secret Key..."):
             with open(KEY_FILE_PATH, "r", encoding="utf-8") as readable_file:
                 crypted_secret_key = readable_file.read()
 
-        with console.status("[bold green]Decrypting the Secret Key..."):
+        with CONSOLE.status("[bold green]Decrypting the Secret Key..."):
             SECRET_KEY = SymmetricEncryption( master_password).decrypt(crypted_secret_key)
 
     PASSKEY = master_password + SECRET_KEY
@@ -357,14 +327,14 @@ clear_console()
 
 # Check and start The Onion Router Daemon
 is_alive = False
-with console.status("[bold green]Getting whether Tor Daemon is alive..."):
+with CONSOLE.status("[bold green]Getting whether Tor Daemon is alive..."):
     try:
         is_alive = Tor.is_tor_daemon_alive()
     except:
         pass
 
 if not is_alive:
-    with console.status("[bold green]Try to start the Tor Daemon..."):
+    with CONSOLE.status("[bold green]Try to start the Tor Daemon..."):
         Tor.start_tor_daemon()
 
 
@@ -378,15 +348,15 @@ while True:
         print("[Error] You have not given a valid Onion address")
         input("Enter: ")
     else:
-        with console.status("[bold green]Getting Tor Session..."):
+        with CONSOLE.status("[bold green]Getting Tor Session..."):
             session = Tor.get_request_session()
 
         start_time = time()
-        with console.status("[bold green]Requesting Service Address..."):
+        with CONSOLE.status("[bold green]Requesting Service Address..."):
             response = session.get("http://" + service_address + "/ping")
         end_time = time()
 
-        console.log("[green]Request took", end_time-start_time, "s")
+        CONSOLE.log("[green]Request took", end_time-start_time, "s")
         try:
             response.raise_for_status()
             response_content = response.content.decode("utf-8")
@@ -425,10 +395,10 @@ SERVICE_ACCOUNT_PASSWORD = None
 # Check if account name or password is stored and if service already has cache data
 if USE_PERSISTENT_STORAGE:
     if os.path.isfile(SERVICES_CONF_PATH):
-        with console.status("[bold green]Loading stored data for all services..."):
+        with CONSOLE.status("[bold green]Loading stored data for all services..."):
             with open(SERVICES_CONF_PATH, "r") as readable_file:
                 crypted_services = readable_file.read()
-        with console.status("[bold green]Decrypting stored data for all services..."):
+        with CONSOLE.status("[bold green]Decrypting stored data for all services..."):
             try:
                 SAVED_SERVICES = json.loads(SymmetricEncryption(PASSKEY).decrypt(crypted_services))
             except Exception as e:
