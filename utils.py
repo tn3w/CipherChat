@@ -620,6 +620,15 @@ class Tor:
         "Stops all running Tor Daemon processes."
 
         try:
+            with control.Controller.from_port(port=9051) as controller:
+                controller.authenticate()
+                controller.signal(stem.Signal.SHUTDOWN)
+        except:
+            pass
+        else:
+            return
+
+        try:
             for process in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
                 if "tor" in process.cmdline():
                     process.terminate()

@@ -138,7 +138,6 @@ else:
         signature_file_path = os.path.join(TEMP_DIR_PATH, "signature.asc")
 
         download_file(download_link, installation_file_path, "Tor Browser")
-
         download_file(signature_link, signature_file_path, "Tor Browser Signature")
 
         with CONSOLE.status("[bold green]Trying to get the PGP Key Name for The Onion Router..."):
