@@ -1,3 +1,4 @@
+from sys import exit
 import os
 import platform
 from typing import Tuple
@@ -6,7 +7,11 @@ import socket
 import secrets
 from rich.console import Console
 
-VERSION = 1.15
+if "__name__" == "__main__":
+    print("Use `main.py`")
+    exit()
+
+VERSION = 1.16
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 

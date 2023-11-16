@@ -5,7 +5,6 @@ if __name__ != "__main__":
 
 import os
 from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string
-from rich.console import Console
 from flask import Flask, request
 import logging
 from cons import SYSTEM, TORRC_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE
