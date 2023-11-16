@@ -29,7 +29,7 @@ from captcha.image import ImageCaptcha
 from cons import LOGO, NEEDED_DIR_PATH, DOD_PATTERNS, GUTMANN_PATTERNS, CONSOLE, DISTRO_TO_PACKAGE_MANAGER, PACKAGE_MANAGERS,\
     GNUPG_PATH, KEYSERVER_URLS, TEMP_DIR_PATH, DOWNLOAD_BRIDGE_URLS, IP_VERSIONS, BRIDGES_CONF_PATH, DEFAULT_BRIDGES_CONF,\
     SNOWFLAKE_BUILDIN_BRIDGES, WEBTUNNEL_BUILDIN_BRIDGES, MEEKLITE_BUILDIN_BRIDGES, OBFS4_BUILDIN_BRIDGES, SYSTEM, SERVICE_SETUP_CONF_PATH,\
-    DEFAULT_HIDDEN_SERVICE_DIR_PATH, TOR_PATH, USERS_HIDDEN_SERVICE_PATH
+    DEFAULT_HIDDEN_SERVICE_DIR_PATH, TOR_PATH, USERS_HIDDEN_SERVICE_PATH, SOCKS_PORT, CONTROLLER_PORT
 
 
 def clear_console():
@@ -622,7 +622,7 @@ class Tor:
         "Stops all running Tor Daemon processes."
 
         try:
-            with control.Controller.from_port(port=9051) as controller:
+            with control.Controller.from_port(port=CONTROLLER_PORT) as controller:
                 controller.authenticate()
                 controller.signal(stem.Signal.SHUTDOWN)
         except:
@@ -673,15 +673,15 @@ class Tor:
                 bridge = bridges
 
             config = {
-                'SocksPort': '9050',
-                'ControlPort': '9051',
+                'SocksPort': str(SOCKS_PORT),
+                'ControlPort': str(CONTROLLER_PORT),
                 'UseBridges': '1',
                 'Bridge': bridge
             }
         else:
             config = {
-                'SocksPort': '9050',
-                'ControlPort': '9051'
+                'SocksPort': str(SOCKS_PORT),
+                'ControlPort': str(CONTROLLER_PORT)
             }
 
         start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
@@ -705,7 +705,7 @@ class Tor:
             CONSOLE.log(f"[red][Error] Error when starting Tor: '{e}'")
             return None
         
-        with control.Controller.from_port(port = 9051) as controller:
+        with control.Controller.from_port(port = CONTROLLER_PORT) as controller:
             controller.authenticate()
             
             controller.add_event_listener(lambda event: print('Tor is ready') if event.code == 'BOOTSTRAP' and event.percent == 100 and event.status == 'DONE' else None)
@@ -718,7 +718,7 @@ class Tor:
         "Function to check if the Controller Port is alive"
 
         try:
-            with control.Controller.from_port(port=9051) as controller:
+            with control.Controller.from_port(port=CONTROLLER_PORT) as controller:
                 controller.authenticate()
 
                 if controller.is_alive():
@@ -746,7 +746,7 @@ class Tor:
 
         def new_tor_signal():
             if secrets.choice([True, False, False, False, False, False, False, False]):
-                with control.Controller.from_port(port=9051) as controller:
+                with control.Controller.from_port(port=CONTROLLER_PORT) as controller:
                     controller.authenticate()
                     controller.signal(stem.Signal.NEWNYM)
 
@@ -761,8 +761,8 @@ class Tor:
             CONSOLE.log(f"[red][Error] Request Error: '{e}'")
 
         new_session.proxies = {
-            'http': 'socks5h://127.0.0.1:9050',
-            'https': 'socks5h://127.0.0.1:9050'
+            'http': 'socks5h://127.0.0.1:' + str(SOCKS_PORT),
+            'https': 'socks5h://127.0.0.1:' + str(SOCKS_PORT)
         }
 
         return new_session

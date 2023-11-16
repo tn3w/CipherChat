@@ -4,33 +4,23 @@ if __name__ != "__main__":
     exit()
 
 import os
-from utils import Tor, clear_console, get_system_architecture, VERSION, ArgumentValidator, JSON, Captcha, generate_random_string
+from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string
 from rich.console import Console
 from flask import Flask, request
 import logging
-
-SYSTEM, MACHINE = get_system_architecture()
-TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Data\Tor\\torrc", "Linux": "/etc/tor/torrc"}.get(SYSTEM, "/usr/local/etc/tor/torrc")
-
-CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
-
-SERVICE_SETUP_CONF_PATH = os.path.join(DATA_DIR_PATH, "service-setup.conf")
-DEFAULT_HIDDEN_SERVICE_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "hiddenservice")
-
-console = Console()
+from cons import SYSTEM, TORRC_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE
 
 service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
 if service_setup_info.get("restart_tor", True):
-    if Tor.is_tor_daemon_alive():
+    if Tor.is_tor_daemon_running():
         Tor.kill_tor_daemon()
 
 HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
 HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
 HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
 
-with console.status("[bold green]Try to start the Tor Daemon with Service..."):
+with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
     Tor.start_tor_daemon(as_service=True)
 
 clear_console()
@@ -44,7 +34,7 @@ except Exception as e:
         hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
     while True:
         clear_console()
-        console.log(f"[red][Error]: Error while getting the hostname: '{e}', This error occurs when the Tor Hidden Service could not be started, below is a tutorial to fix this error:")
+        CONSOLE.log(f"[red][Error]: Error while getting the hostname: '{e}', This error occurs when the Tor Hidden Service could not be started, below is a tutorial to fix this error:")
 
         print("\n~~~ Tutorial ~~~")
         if SYSTEM in ["Linux", "macOS"]:
@@ -60,7 +50,7 @@ except Exception as e:
             print("""4. Close the file by pressing "File > Save".""")
         input("Ready? Press Enter: ")
 
-        with console.status("[bold green]Try to start the Tor Daemon with Service..."):
+        with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
             Tor.start_tor_daemon(as_service=True)
         
         if os.path.isfile(HOSTNAME_PATH):
@@ -71,7 +61,7 @@ except Exception as e:
 
     clear_console()
 
-console.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
+CONSOLE.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
 
 CAPTCHA_SECRET = generate_random_string(32)
 
