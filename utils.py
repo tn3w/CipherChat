@@ -652,7 +652,7 @@ class Tor:
         return hidden_dir, hidden_port
 
     @staticmethod
-    def start_tor_daemon(as_service: bool = False) -> Optional[stem.process._Process]:
+    def start_tor_daemon(as_service: bool = False) -> Optional[launch_tor_with_config]:
         """
         Launches The Onion Router Daemom
         
