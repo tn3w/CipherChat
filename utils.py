@@ -652,25 +652,31 @@ class Tor:
         return hidden_dir, hidden_port
 
     @staticmethod
-    def start_tor_daemon(as_service: bool = False) -> None:
+    def start_tor_daemon(as_service: bool = False) -> Optional[stem.process._Process]:
         """
         Launches The Onion Router Daemom
         
         :param as_service: If True, a hidden service is started with
         """
 
-        if Tor.is_tor_daemon_alive():
+        if Tor.is_tor_daemon_running() or Tor.is_tor_controller_alive():
             if not as_service:
                 return
             Tor.kill_tor_daemon()
 
         if not as_service:
             bridges = Tor.get_bridges()
+
+            if isinstance(bridges, list):
+                bridge = secrets.choice(bridges)
+            else:
+                bridge = bridges
+
             config = {
                 'SocksPort': '9050',
                 'ControlPort': '9051',
                 'UseBridges': '1',
-                'Bridge': bridges
+                'Bridge': bridge
             }
         else:
             config = {
@@ -690,16 +696,26 @@ class Tor:
             config['HiddenServicePort'] = f'80 127.0.0.1:{hidden_port}'
 
         try:
-            launch_tor_with_config(
+            tor_process = launch_tor_with_config(
                 tor_cmd=TOR_PATH,
-                config=config
+                config=config,
+                take_ownership=True
             )
         except Exception as e:
             CONSOLE.log(f"[red][Error] Error when starting Tor: '{e}'")
-
+            return None
+        
+        with control.Controller.from_port(port = 9051) as controller:
+            controller.authenticate()
+            
+            controller.add_event_listener(lambda event: print('Tor is ready') if event.code == 'BOOTSTRAP' and event.percent == 100 and event.status == 'DONE' else None)
+            controller.wait_for(stem.CircStatus.EXTENDED)
+        
+        return tor_process
+    
     @staticmethod
-    def is_tor_daemon_alive() -> bool:
-        "Function to check if the Tor Daemon is currently running"
+    def is_tor_controller_alive() -> bool:
+        "Function to check if the Controller Port is alive"
 
         try:
             with control.Controller.from_port(port=9051) as controller:
@@ -711,6 +727,12 @@ class Tor:
                     CONSOLE.log("[red][Error] Tor is probably not installed.")
         except (Exception) as socket_error:
             CONSOLE.log(f"[red][Error] Error connecting to the Tor Control Port '{socket_error}'")
+        
+        return False
+
+    @staticmethod
+    def is_tor_daemon_running() -> bool:
+        "Function to check if the Tor Daemon is currently running"
         
         for process in psutil.process_iter(attrs=['pid', 'name']):
             if 'tor' in process.name():
