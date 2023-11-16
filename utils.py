@@ -659,9 +659,7 @@ class Tor:
         :param as_service: If True, a hidden service is started with
         """
 
-        if Tor.is_tor_daemon_running() or Tor.is_tor_controller_alive():
-            if not as_service:
-                return
+        if Tor.is_tor_daemon_running():
             Tor.kill_tor_daemon()
 
         if not as_service:
