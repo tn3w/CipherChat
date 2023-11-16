@@ -143,7 +143,7 @@ def get_gnupg_path() -> str:
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
 GNUPG_PATH = get_gnupg_path()
 
-def find_avaiable_port(without_port: int):
+def find_avaiable_port(without_port: int = None):
     def is_port_in_use(port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(('127.0.0.1', port)) == 0
