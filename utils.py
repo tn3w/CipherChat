@@ -673,7 +673,6 @@ class Tor:
             config = {
                 'SocksPort': str(SOCKS_PORT),
                 'ControlPort': str(CONTROLLER_PORT),
-                'UseBridges': '1',
                 'Bridge': bridge
             }
         else:
@@ -702,12 +701,6 @@ class Tor:
         except Exception as e:
             CONSOLE.log(f"[red][Error] Error when starting Tor: '{e}'")
             return None
-        
-        with control.Controller.from_port(port = CONTROLLER_PORT) as controller:
-            controller.authenticate()
-            
-            controller.add_event_listener(lambda event: print('Tor is ready') if event.code == 'BOOTSTRAP' and event.percent == 100 and event.status == 'DONE' else None)
-            controller.wait_for(stem.CircStatus.EXTENDED)
         
         return tor_process
     
