@@ -11,7 +11,7 @@ if "__name__" == "__main__":
     print("Use `main.py`")
     exit()
 
-VERSION = 1.17
+VERSION = 1.18
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
