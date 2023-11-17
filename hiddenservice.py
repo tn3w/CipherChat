@@ -95,7 +95,7 @@ def safe_usage():
 
     return render_template_string("<pre>{{ safe_usage }}</pre>", safe_usage=new_safe_usage)
 
-@app.route("/api/register_captcha", methods = ["GET"])
+@app.route("/api/register_captcha", methods = ["POST"])
 def api_register_captcha():
     if not request.method == "POST":
         return {"status_code": 400, "error": "Invalid Request method"}
