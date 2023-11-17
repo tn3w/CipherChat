@@ -11,7 +11,7 @@ if "__name__" == "__main__":
     print("Use `main.py`")
     exit()
 
-VERSION = 1.16
+VERSION = 1.17
 
 LOGO = '''
  dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
@@ -25,6 +25,7 @@ Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
+TEMPLATES_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "templates")
 NEEDED_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "needed")
 
 # Service Paths
@@ -148,11 +149,11 @@ def get_gnupg_path() -> str:
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
 GNUPG_PATH = get_gnupg_path()
 
-def find_avaiable_port(without_port: int = None):
-    def is_port_in_use(port):
+def is_port_in_use(port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex(('127.0.0.1', port)) == 0
-    
+
+def find_avaiable_port(without_port: int = None):
     while True:
         random_port = secrets.randbelow(9000) + 1000
         if random_port == without_port:
@@ -166,10 +167,17 @@ TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\To
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
          "The development of Tor has received funding from various government agencies, including the U.S. government, due to its importance in promoting online privacy and security.", "Tor allows websites to operate as hidden services, which are only accessible through the Tor network. This has led to the creation of websites that can't be easily traced or taken down.", "Websites on the Tor network often have addresses ending in '.onion' instead of the usual '.com' or '.org', adding to the uniqueness of the network.", "The strength of the Tor network lies in its thousands of volunteer-run relays worldwide. Users' data is passed through multiple relays, making it extremely difficult for anyone to trace their online activities."]
-SOCKS_PORT = find_avaiable_port()
-CONTROLLER_PORT = find_avaiable_port(SOCKS_PORT)
+SOCKS_PORT = 9021
+if is_port_in_use(SOCKS_PORT):
+    SOCKS_PORT = find_avaiable_port(9031)
+
+CONTROLLER_PORT = 9031
+if is_port_in_use(CONTROLLER_PORT):
+    CONTROLLER_PORT = find_avaiable_port(SOCKS_PORT)
+
 
 CONSOLE = Console()
+
 
 GUTMANN_PATTERNS = [bytes([i % 256] * 100000) for i in range(35)]
 DOD_PATTERNS = [bytes([0x00] * 100000), bytes([0xFF] * 100000), bytes([0x00] * 100000)]

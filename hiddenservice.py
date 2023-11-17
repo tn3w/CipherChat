@@ -5,10 +5,10 @@ if __name__ != "__main__":
 
 import os
 from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string
-from flask import Flask, request
+from flask import Flask, request, render_template_string
 import logging
 import atexit
-from cons import SYSTEM, TORRC_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE
+from cons import SYSTEM, TORRC_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE, TEMPLATES_DIR_PATH
 
 service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
@@ -75,6 +75,21 @@ log.setLevel(logging.WARNING)
 @app.route("/ping")
 def ping():
     return "Pong! CipherChat Chat Service " + str(VERSION)
+
+@app.route("/safe_usage.txt")
+def safe_usage():
+    SAFE_USAGE_PATH = os.path.join(TEMPLATES_DIR_PATH, "safe_usage.txt")
+    if not os.path.isfile(SAFE_USAGE_PATH):
+        return "No safe_usage.txt provided."
+    with open(SAFE_USAGE_PATH, "r") as readable_file:
+        safe_usage = readable_file.read()
+
+    new_safe_usage = ""
+    for line in safe_usage.split("\n"):
+        if not line.strip().startswith("#"):
+            new_safe_usage += line + "\n"
+
+    return render_template_string("<pre>{{ safe_usage }}</pre>", safe_usage=new_safe_usage)
 
 @app.route("/api/register_captcha", methods = ["GET"])
 def api_register_captcha():
