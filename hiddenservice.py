@@ -4,7 +4,7 @@ if __name__ != "__main__":
     exit()
 
 import os
-from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string
+from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string, WebPage
 from flask import Flask, request, render_template_string
 import logging
 import atexit
@@ -75,6 +75,10 @@ log.setLevel(logging.WARNING)
 @app.route("/ping")
 def ping():
     return "Pong! CipherChat Chat Service " + str(VERSION)
+
+@app.route("/")
+def index():
+    return WebPage.render_template(os.path.join(TEMPLATES_DIR_PATH, "index.html"))
 
 @app.route("/safe_usage.txt")
 def safe_usage():

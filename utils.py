@@ -23,7 +23,6 @@ from cryptography.hazmat.primitives import hashes, serialization, padding as sym
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
-from flask import request
 from jinja2 import Environment, select_autoescape, Undefined
 from captcha.image import ImageCaptcha
 from cons import LOGO, NEEDED_DIR_PATH, DOD_PATTERNS, GUTMANN_PATTERNS, CONSOLE, DISTRO_TO_PACKAGE_MANAGER, PACKAGE_MANAGERS,\
@@ -1294,95 +1293,6 @@ class WebPage:
         return html
     
     @staticmethod
-    def get_client_language(default: str = "en") -> str:
-        """
-        Function to get the language code of the client
-
-        :param default: The value that is returned if no language can be found
-        """
-
-        preferred_language = request.accept_languages.best_match(LANGUAGE_CODES)
-
-        if preferred_language != None:
-            return preferred_language
-        
-        return default
-    
-    @staticmethod
-    def _translate_text(text_to_translate: str, from_lang: str, to_lang: str) -> str:
-        """
-        Function to translate a text based on a translation file
-
-        :param text_to_translate: The text to translate
-        :param from_lang: The language of the text to be translated
-        :param to_lang: Into which language the text should be translated
-        """
-
-        if from_lang == to_lang:
-            return text_to_translate
-        
-        translations = JSON.load(TRANSLATIONS_PATH, list())
-        
-        for translation in translations:
-            if translation["text_to_translate"] == text_to_translate and translation["from_lang"] == from_lang and translation["to_lang"] == to_lang:
-                return translation["translated_output"]
-        
-        return text_to_translate
-    
-    @staticmethod
-    def translate(html: str, from_lang: str, to_lang: str) -> str:
-        """
-        Function to translate a page into the correct language
-
-        :param html: The content of the page as html
-        :param from_lang: The language of the text to be translated
-        :param to_lang: Into which language the text should be translated
-        """
-        
-        soup = BeautifulSoup(html, 'html.parser')
-
-        def translate_htmlified_text(html_tag):
-            try:
-                new_soup = BeautifulSoup(str(html_tag), 'html.parser')
-                outer_tag = new_soup.find(lambda tag: tag.find_all(recursive=False))
-
-                text = ''.join(str(tag) for tag in outer_tag.contents)
-            except:
-                text = html_tag.text
-            
-            if "<" in text:
-                pattern = r'(<.*?>)(.*?)(<\/.*?>)'
-        
-                def replace(match):
-                    tag_open, content, tag_close = match.groups()
-                    processed_content = WebPage._translate_text(content, from_lang, to_lang)
-                    return f'{tag_open}{processed_content}{tag_close}'
-                
-                modified_text = re.sub(pattern, replace, text)
-            else:
-                modified_text = WebPage._translate_text(text, from_lang, to_lang)
-            return modified_text
-        
-        tags = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'p', 'button'])
-        for tag in tags:
-            if 'ntr' not in tag.attrs:
-                tag.string = translate_htmlified_text(tag)
-        
-        inputs = soup.find_all('input')
-        for input_tag in inputs:
-            if input_tag.has_attr('placeholder') and 'ntr' not in input_tag.attrs:
-                input_tag['placeholder'] = WebPage._translate_text(input_tag['placeholder'], from_lang, to_lang)
-        
-        head_tag = soup.find('head')
-        if head_tag:
-            title_element = head_tag.find('title')
-            if title_element:
-                title_element.string = WebPage._translate_text(title_element.text, from_lang, to_lang)
-        
-        translated_html = str(soup).replace("&lt;", "<").replace("&gt;", ">")
-        return translated_html
-    
-    @staticmethod
     def render_template(file_path: Optional[str] = None, html: Optional[str] = None, **args) -> str:
         """
         Function to render a HTML template (= insert arguments / translation / minimization)
@@ -1410,14 +1320,11 @@ class WebPage:
         
         template = env.from_string(html)
 
-        client_language = WebPage.get_client_language()
-        args["language"] = client_language
-
         html = template.render(**args)
-        html = WebPage.translate(html, "en", client_language)
         html = WebPage.minimize(html)
 
         return html
+
 
 class Captcha:
     "Class to generate and verify a captcha"
