@@ -352,7 +352,7 @@ while True:
 
             if is_control_port:
                 CONSOLE.log("[bold green]~ Tor is running")
-                atexit.register(Tor.at_exit_kill_tor())
+                atexit.register(Tor.at_exit_kill_tor(tor_process))
                 break
             else:
                 CONSOLE.log("[red]Tor was not started correctly")
