@@ -7,6 +7,7 @@ import os
 from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string
 from flask import Flask, request
 import logging
+import atexit
 from cons import SYSTEM, TORRC_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE
 
 service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
@@ -20,7 +21,9 @@ HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
 HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
 
 with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
-    Tor.start_tor_daemon(as_service=True)
+    tor_process = Tor.start_tor_daemon(as_service=True)
+
+atexit.register(Tor.at_exit_kill_tor, tor_process)
 
 clear_console()
 
@@ -73,7 +76,7 @@ log.setLevel(logging.WARNING)
 def ping():
     return "Pong! CipherChat Chat Service " + str(VERSION)
 
-@app.route("/api/register_captcha", methods = ["POST"])
+@app.route("/api/register_captcha", methods = ["GET"])
 def api_register_captcha():
     if not request.method == "POST":
         return {"status_code": 400, "error": "Invalid Request method"}
