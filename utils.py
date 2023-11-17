@@ -639,6 +639,14 @@ class Tor:
             CONSOLE.log(f"[red]Privileg Error: AccessDenied while stopping Tor: {e}")
         except Exception as e:
             CONSOLE.log(f"[red]Error stopping Tor Daemon: {e}")
+    
+    @staticmethod
+    def at_exit_kill_tor(tor_process):
+        "Kills the TOR process at the end"
+        
+        with CONSOLE.status("[bold green]Try to terminate the Tor process..."):
+            tor_process.terminate()
+            Tor.kill_tor_daemon()
 
     @staticmethod
     def get_hidden_service_info() -> (Optional[str], int):
