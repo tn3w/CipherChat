@@ -4,11 +4,11 @@ if __name__ != "__main__":
     exit()
 
 import os
-from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string, WebPage
+from utils import Tor, clear_console, ArgumentValidator, JSON, Captcha, generate_random_string, WebPage, AsymmetricEncryption
 from flask import Flask, request, render_template_string
 import logging
 import atexit
-from cons import SYSTEM, TORRC_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE, TEMPLATES_DIR_PATH
+from cons import SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE, TEMPLATES_DIR_PATH
 
 service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
@@ -36,6 +36,8 @@ except Exception:
 CONSOLE.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
 
 CAPTCHA_SECRET = generate_random_string(32)
+ASYMMETRIC_ENCRYPTION = AsymmetricEncryption().generate_keys()
+PUBLIC_KEY, PRIVATE_KEY = ASYMMETRIC_ENCRYPTION.public_key, ASYMMETRIC_ENCRYPTION.private_key 
 
 app = Flask("CipherChat")
 
@@ -64,6 +66,10 @@ def safe_usage():
             new_safe_usage += line + "\n"
 
     return render_template_string("<pre>{{ safe_usage }}</pre>", safe_usage=new_safe_usage)
+
+@app.route("/api/public_key")
+def api_public_key():
+    return PUBLIC_KEY
 
 @app.route("/api/register_captcha", methods = ["POST"])
 def api_register_captcha():
