@@ -328,45 +328,11 @@ if USE_PERSISTENT_STORAGE:
 
 clear_console()
 
-# Check and try to start The Onion Router Daemon
-number_trys = 0
-while True:
-    with CONSOLE.status("[bold green]Getting whether Tor Daemon is alive..."):
-        is_running, is_control_port, is_socks_port = Tor.is_tor_daemon_running(), Tor.is_tor_controller_alive(), Tor.is_tor_socks_alive()
+with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
+    tor_process = Tor.start_tor_daemon()
 
-    if is_running and is_control_port and is_socks_port:
-        CONSOLE.log("[bold green]~ Tor is running")
-        break
+atexit.register(Tor.at_exit_kill_tor, tor_process)
 
-    if is_running and (not is_control_port or not is_socks_port):
-        with CONSOLE.status("[bold green]Try to end the Tor process..."):
-            Tor.kill_tor_daemon()
-    
-    if False in [is_running, is_control_port, is_socks_port]:
-        with CONSOLE.status("[bold green]Try to start the Tor Daemon..."):
-            tor_process = Tor.start_tor_daemon()
-
-        if not tor_process is None:
-            with CONSOLE.status("[bold green]Waiting 5 seconds..."):
-                sleep(5)
-            with CONSOLE.status("[bold green]Check whether Tor has been started correctly..."):
-                is_control_port, is_socks_port = Tor.is_tor_controller_alive(), Tor.is_tor_socks_alive()
-
-            if is_control_port and is_socks_port:
-                CONSOLE.log("[bold green]~ Tor is running")
-                atexit.register(Tor.at_exit_kill_tor, tor_process)
-                break
-            else:
-                CONSOLE.log("[red]Tor was not started correctly")
-                with CONSOLE.status("[bold green]Try to terminate the Tor process..."):
-                    tor_process.terminate()
-
-    if number_trys > 4:
-        CONSOLE.log("[red][Error] Tor Daemon could not be started")
-        exit()
-
-    number_trys += 1
-    CONSOLE.log("Retrying ...")
 
 # Getting the chat server
 while True:
