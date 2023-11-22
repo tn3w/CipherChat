@@ -330,7 +330,9 @@ clear_console()
 
 with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
     CONTROL_PORT, SOCKS_PORT = Tor.get_ports()
-    tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT)
+    
+    while not Tor.is_tor_controller_alive(CONTROL_PORT):
+        tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT)
 
 atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
 

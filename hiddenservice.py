@@ -10,6 +10,8 @@ import logging
 import atexit
 from cons import SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSION, CONSOLE, TEMPLATES_DIR_PATH
 
+clear_console()
+
 service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
 CONTROL_PORT, SOCKS_PORT = Tor.get_ports(as_hidden_service=True)
@@ -22,12 +24,11 @@ HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE
 HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
 HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
 
-with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
-    tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT, as_service=True)
+while not Tor.is_tor_controller_alive(CONTROL_PORT):
+    with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
+        tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT, as_service=True)
 
 atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
-
-clear_console()
 
 try:
     with open(HOSTNAME_PATH, "r") as readable_file:
