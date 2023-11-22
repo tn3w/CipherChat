@@ -329,9 +329,10 @@ if USE_PERSISTENT_STORAGE:
 clear_console()
 
 with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
-    tor_process = Tor.start_tor_daemon()
+    CONTROL_PORT, SOCKS_PORT = Tor.get_ports()
+    tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT)
 
-atexit.register(Tor.at_exit_kill_tor, tor_process)
+atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
 
 
 # Getting the chat server
@@ -345,7 +346,7 @@ while True:
         input("Enter: ")
     else:
         with CONSOLE.status("[bold green]Getting Tor Session..."):
-            session = Tor.get_request_session()
+            session = Tor.get_request_session(CONTROL_PORT, SOCKS_PORT)
 
         start_time = time()
         with CONSOLE.status("[bold green]Requesting Service Address..."):
