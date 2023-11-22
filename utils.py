@@ -681,7 +681,7 @@ class Tor:
         """
         Kills the TOR process at the end
         
-        :param control_port: Port to Tor Controller
+        :param control_port: Path to the Tor Controller
         :param tor_process: The running Tor Process
         """
 
@@ -690,7 +690,7 @@ class Tor:
         
         with CONSOLE.status("[bold green]Try to terminate the Tor process..."):
             tor_process.terminate()
-            Tor.kill_tor_daemon()
+            Tor.kill_tor_daemon(control_port)
 
     @staticmethod
     def get_hidden_service_info() -> (Optional[str], int):
@@ -713,7 +713,7 @@ class Tor:
         :param socks_port: Port to Tor Socks
         """
 
-        if Tor.is_tor_daemon_running():
+        if Tor.is_tor_controller_alive(control_port):
             Tor.kill_tor_daemon(control_port)
 
         if not as_service:
@@ -797,16 +797,6 @@ class Tor:
             return False
         finally:
             sock.close()
-        
-        return False
-
-    @staticmethod
-    def is_tor_daemon_running() -> bool:
-        "Function to check if the Tor Daemon is currently running"
-        
-        for process in psutil.process_iter(attrs=['pid', 'name']):
-            if 'tor' in process.name():
-                return True
         
         return False
 

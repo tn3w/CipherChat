@@ -12,18 +12,20 @@ from cons import SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, VERSI
 
 service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
 
+CONTROL_PORT, SOCKS_PORT = Tor.get_ports(as_hidden_service=True)
+
 if service_setup_info.get("restart_tor", True):
-    if Tor.is_tor_daemon_running():
-        Tor.kill_tor_daemon()
+    if Tor.is_tor_controller_alive(CONTROL_PORT):
+        Tor.kill_tor_daemon(CONTROL_PORT)
 
 HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
 HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
 HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
 
 with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
-    tor_process = Tor.start_tor_daemon(as_service=True)
+    tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT, as_service=True)
 
-atexit.register(Tor.at_exit_kill_tor, tor_process)
+atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
 
 clear_console()
 
