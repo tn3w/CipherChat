@@ -149,17 +149,6 @@ def get_gnupg_path() -> str:
 KEYSERVER_URLS = ["hkp://keyserver.ubuntu.com:80", "keys.gnupg.net", "pool.sks-keyservers.net", "pgp.mit.edu"]
 GNUPG_PATH = get_gnupg_path()
 
-def is_port_in_use(port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            return s.connect_ex(('127.0.0.1', port)) == 0
-
-def find_avaiable_port(without_port: int = None):
-    while True:
-        random_port = secrets.randbelow(9000) + 1000
-        if random_port == without_port:
-            continue
-        if not is_port_in_use(random_port):
-            return random_port
 
 # Tor
 TOR_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\Tor Browser\\Browser\\TorBrowser\\Tor\\tor.exe", "macOS": "/usr/local/bin/tor"}.get(SYSTEM, "/usr/bin/tor")
@@ -167,13 +156,6 @@ TORRC_PATH = {"Windows": fr"C:\\Users\\{os.environ.get('USERNAME')}\\Desktop\\To
 TOR_EXT = {"Windows": "exe"}.get(SYSTEM, "dmg")
 FACTS = ["Tor is a valuable tool for activists, journalists, and individuals in countries with restricted internet access, allowing them to communicate and access information without fear of surveillance.", "The Tor Browser was first created by the U.S. Naval Research Laboratory.", "The name 'Tor' originally stood for 'The Onion Router', referring to its multiple layers of encryption, much like the layers of an onion.", "The Tor Browser is open-source software, which means its source code is freely available for anyone to inspect, modify, and contribute to.", "Tor is designed to prioritize user privacy by routing internet traffic through a network of volunteer-operated servers, making it difficult to trace the origin and destination of data.",
          "The development of Tor has received funding from various government agencies, including the U.S. government, due to its importance in promoting online privacy and security.", "Tor allows websites to operate as hidden services, which are only accessible through the Tor network. This has led to the creation of websites that can't be easily traced or taken down.", "Websites on the Tor network often have addresses ending in '.onion' instead of the usual '.com' or '.org', adding to the uniqueness of the network.", "The strength of the Tor network lies in its thousands of volunteer-run relays worldwide. Users' data is passed through multiple relays, making it extremely difficult for anyone to trace their online activities."]
-SOCKS_PORT = 9021
-if is_port_in_use(SOCKS_PORT):
-    SOCKS_PORT = find_avaiable_port(9031)
-
-CONTROLLER_PORT = 9031
-if is_port_in_use(CONTROLLER_PORT):
-    CONTROLLER_PORT = find_avaiable_port(SOCKS_PORT)
 
 
 CONSOLE = Console()
