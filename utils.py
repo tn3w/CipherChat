@@ -704,11 +704,13 @@ class Tor:
         return hidden_dir, hidden_port
 
     @staticmethod
-    def start_tor_daemon(socks_port: int, control_port: int, as_service: bool = False) -> Optional[launch_tor_with_config]:
+    def start_tor_daemon(control_port: int, socks_port: int, as_service: bool = False) -> Optional[launch_tor_with_config]:
         """
         Launches The Onion Router Daemom
         
         :param as_service: If True, a hidden service is started with
+        :param control_port: Port to the Tor Controller
+        :param socks_port: Port to Tor Socks
         """
 
         if Tor.is_tor_daemon_running():
