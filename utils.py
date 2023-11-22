@@ -489,13 +489,16 @@ class Tor:
 
                     if not os.path.isfile(file_path):
                         continue
-
-                    with rarfile.RarFile(file_path) as rf:
-                        file_in_rar = rf.namelist()[0]
-
-                        with rf.open(file_in_rar) as readable_file:
-                            ips = readable_file.read().decode('utf-8')
                     
+                    try:
+                        with rarfile.RarFile(file_path) as rf:
+                            file_in_rar = rf.namelist()[0]
+
+                            with rf.open(file_in_rar) as readable_file:
+                                ips = readable_file.read().decode('utf-8')
+                    except:
+                        continue
+
                     _ips = list()
                     for ip in ips.split("\n"):
                         ip = ip.strip()
