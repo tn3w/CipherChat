@@ -3,8 +3,6 @@ import os
 import platform
 from typing import Tuple
 import subprocess
-import socket
-import secrets
 from rich.console import Console
 
 if "__name__" == "__main__":
