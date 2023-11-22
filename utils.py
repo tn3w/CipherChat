@@ -29,7 +29,7 @@ from captcha.image import ImageCaptcha
 from cons import LOGO, NEEDED_DIR_PATH, DOD_PATTERNS, GUTMANN_PATTERNS, CONSOLE, DISTRO_TO_PACKAGE_MANAGER, PACKAGE_MANAGERS,\
     GNUPG_PATH, KEYSERVER_URLS, TEMP_DIR_PATH, DOWNLOAD_BRIDGE_URLS, IP_VERSIONS, BRIDGES_CONF_PATH, DEFAULT_BRIDGES_CONF,\
     SNOWFLAKE_BUILDIN_BRIDGES, WEBTUNNEL_BUILDIN_BRIDGES, MEEKLITE_BUILDIN_BRIDGES, OBFS4_BUILDIN_BRIDGES, SYSTEM, SERVICE_SETUP_CONF_PATH,\
-    DEFAULT_HIDDEN_SERVICE_DIR_PATH, TOR_PATH, USERS_HIDDEN_SERVICE_PATH, SOCKS_PORT, CONTROLLER_PORT
+    DEFAULT_HIDDEN_SERVICE_DIR_PATH, TOR_PATH, USERS_HIDDEN_SERVICE_PATH
 
 
 def clear_console():
@@ -650,11 +650,15 @@ class Tor:
         return (download_url, signature_url)
 
     @staticmethod
-    def kill_tor_daemon() -> None:
-        "Stops all running Tor Daemon processes."
+    def kill_tor_daemon(controller_port: int) -> None:
+        """
+        Stops all running Tor Daemon processes.
+        
+        :param controller_port: Port to Tor Controller
+        """
 
         try:
-            with control.Controller.from_port(port=CONTROLLER_PORT) as controller:
+            with control.Controller.from_port(port=controller_port) as controller:
                 controller.authenticate()
                 controller.signal(stem.Signal.SHUTDOWN)
         except:
@@ -673,8 +677,16 @@ class Tor:
             CONSOLE.log(f"[red]Error stopping Tor Daemon: {e}")
     
     @staticmethod
-    def at_exit_kill_tor(tor_process):
-        "Kills the TOR process at the end"
+    def at_exit_kill_tor(controller_port: int, tor_process = None):
+        """
+        Kills the TOR process at the end
+        
+        :param controller_port: Port to Tor Controller
+        :param tor_process: The running Tor Process
+        """
+
+        if tor_process is None:
+            return
         
         with CONSOLE.status("[bold green]Try to terminate the Tor process..."):
             tor_process.terminate()
@@ -692,7 +704,7 @@ class Tor:
         return hidden_dir, hidden_port
 
     @staticmethod
-    def start_tor_daemon(as_service: bool = False) -> Optional[launch_tor_with_config]:
+    def start_tor_daemon(socks_port: int, controller_port: int, as_service: bool = False) -> Optional[launch_tor_with_config]:
         """
         Launches The Onion Router Daemom
         
@@ -700,7 +712,7 @@ class Tor:
         """
 
         if Tor.is_tor_daemon_running():
-            Tor.kill_tor_daemon()
+            Tor.kill_tor_daemon(controller_port)
 
         if not as_service:
             bridges = Tor.get_bridges()
@@ -711,14 +723,14 @@ class Tor:
                 bridge = bridges
 
             config = {
-                'SocksPort': str(SOCKS_PORT),
-                'ControlPort': str(CONTROLLER_PORT),
+                'SocksPort': str(socks_port),
+                'ControlPort': str(controller_port),
                 'Bridge': bridge
             }
         else:
             config = {
-                'SocksPort': str(SOCKS_PORT),
-                'ControlPort': str(CONTROLLER_PORT)
+                'SocksPort': str(socks_port),
+                'ControlPort': str(controller_port)
             }
 
         start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
@@ -745,11 +757,15 @@ class Tor:
         return tor_process
     
     @staticmethod
-    def is_tor_controller_alive() -> bool:
-        "Function to check if the Controller Port is alive"
+    def is_tor_controller_alive(controller_port: int) -> bool:
+        """
+        Function to check if the Controller Port is alive
+
+        :param controller_port: Port to Tor Controller
+        """
 
         try:
-            with control.Controller.from_port(port=CONTROLLER_PORT) as controller:
+            with control.Controller.from_port(port=controller_port) as controller:
                 controller.authenticate()
 
                 if controller.is_alive():
@@ -762,14 +778,18 @@ class Tor:
         return False
 
     @staticmethod
-    def is_tor_socks_alive() -> bool:
-        "Function to check if the Socks Port is alive"
+    def is_tor_socks_alive(socks_port: int) -> bool:
+        """
+        Function to check if the Socks Port is alive
+
+        :param socks_port: Path to Tor Socks
+        """
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(2)
 
-            sock.connect(("127.0.0.1", SOCKS_PORT))
+            sock.connect(("127.0.0.1", socks_port))
         except Exception as e:
             CONSOLE.log(f"[red][Error] Error while connecting to Socks Port: `{e}`")
             return False
@@ -789,12 +809,17 @@ class Tor:
         return False
 
     @staticmethod
-    def get_request_session() -> requests.session:
-        "Creates gate connection and returns requests.session"
+    def get_request_session(controller_port: int, socks_port: int) -> requests.session:
+        """
+        Creates gate connection and returns requests.session
+        
+        :param controller_port: Path to Tor Controller
+        :param socks_port: Path to Tor Socks
+        """
 
         def new_tor_signal():
             if secrets.choice([True, False, False, False, False, False, False, False]):
-                with control.Controller.from_port(port=CONTROLLER_PORT) as controller:
+                with control.Controller.from_port(port=controller_port) as controller:
                     controller.authenticate()
                     controller.signal(stem.Signal.NEWNYM)
 
@@ -803,14 +828,14 @@ class Tor:
         try:
             new_tor_signal()
         except stem.SocketError:
-            Tor.start_tor_daemon()
+            Tor.start_tor_daemon(controller_port, socks_port)
             new_tor_signal()
         except Exception as e:
             CONSOLE.log(f"[red][Error] Request Error: '{e}'")
 
         new_session.proxies = {
-            'http': 'socks5h://127.0.0.1:' + str(SOCKS_PORT),
-            'https': 'socks5h://127.0.0.1:' + str(SOCKS_PORT)
+            'http': 'socks5h://127.0.0.1:' + str(socks_port),
+            'https': 'socks5h://127.0.0.1:' + str(socks_port)
         }
 
         return new_session
