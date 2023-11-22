@@ -448,6 +448,35 @@ class Tor:
     "Collection of functions that have something to do with the Tor network"
 
     @staticmethod
+    def get_ports(as_hidden_service = False) -> Tuple[int, int]:
+        """
+        Function for getting control and socks port
+        
+        :param as_hidden_service: If True, other ports are used
+        """
+
+        control_port, socks_port, random_range = {True: (5010, 5020, 5000)}.get(as_hidden_service, (9010, 9020, 9000))
+
+        def is_port_in_use(port):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                return s.connect_ex(('127.0.0.1', port)) == 0
+            
+        def find_avaiable_port(without_port = None):
+            while True:
+                random_port = secrets.randbelow(random_range) + 1000
+                if random_port == without_port:
+                    continue
+                if not is_port_in_use(random_port):
+                    return random_port
+        
+        if is_port_in_use(control_port):
+            control_port = find_avaiable_port(socks_port)
+        if is_port_in_use(socks_port):
+            socks_port = find_avaiable_port(control_port)
+        
+        return control_port, socks_port
+
+    @staticmethod
     def download_bridges() -> None:
         "Downloads Tor bridges obsf4, snowflake and webtunnel"
 
