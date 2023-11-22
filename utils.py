@@ -650,15 +650,15 @@ class Tor:
         return (download_url, signature_url)
 
     @staticmethod
-    def kill_tor_daemon(controller_port: int) -> None:
+    def kill_tor_daemon(control_port: int) -> None:
         """
         Stops all running Tor Daemon processes.
         
-        :param controller_port: Port to Tor Controller
+        :param control_port: Port to Tor Controller
         """
 
         try:
-            with control.Controller.from_port(port=controller_port) as controller:
+            with control.Controller.from_port(port=control_port) as controller:
                 controller.authenticate()
                 controller.signal(stem.Signal.SHUTDOWN)
         except:
@@ -677,11 +677,11 @@ class Tor:
             CONSOLE.log(f"[red]Error stopping Tor Daemon: {e}")
     
     @staticmethod
-    def at_exit_kill_tor(controller_port: int, tor_process = None):
+    def at_exit_kill_tor(control_port: int, tor_process = None):
         """
         Kills the TOR process at the end
         
-        :param controller_port: Port to Tor Controller
+        :param control_port: Port to Tor Controller
         :param tor_process: The running Tor Process
         """
 
@@ -704,7 +704,7 @@ class Tor:
         return hidden_dir, hidden_port
 
     @staticmethod
-    def start_tor_daemon(socks_port: int, controller_port: int, as_service: bool = False) -> Optional[launch_tor_with_config]:
+    def start_tor_daemon(socks_port: int, control_port: int, as_service: bool = False) -> Optional[launch_tor_with_config]:
         """
         Launches The Onion Router Daemom
         
@@ -712,7 +712,7 @@ class Tor:
         """
 
         if Tor.is_tor_daemon_running():
-            Tor.kill_tor_daemon(controller_port)
+            Tor.kill_tor_daemon(control_port)
 
         if not as_service:
             bridges = Tor.get_bridges()
@@ -724,13 +724,13 @@ class Tor:
 
             config = {
                 'SocksPort': str(socks_port),
-                'ControlPort': str(controller_port),
+                'ControlPort': str(control_port),
                 'Bridge': bridge
             }
         else:
             config = {
                 'SocksPort': str(socks_port),
-                'ControlPort': str(controller_port)
+                'ControlPort': str(control_port)
             }
 
         start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
@@ -757,15 +757,15 @@ class Tor:
         return tor_process
     
     @staticmethod
-    def is_tor_controller_alive(controller_port: int) -> bool:
+    def is_tor_controller_alive(control_port: int) -> bool:
         """
         Function to check if the Controller Port is alive
 
-        :param controller_port: Port to Tor Controller
+        :param control_port: Port to Tor Controller
         """
 
         try:
-            with control.Controller.from_port(port=controller_port) as controller:
+            with control.Controller.from_port(port=control_port) as controller:
                 controller.authenticate()
 
                 if controller.is_alive():
@@ -809,17 +809,17 @@ class Tor:
         return False
 
     @staticmethod
-    def get_request_session(controller_port: int, socks_port: int) -> requests.session:
+    def get_request_session(control_port: int, socks_port: int) -> requests.session:
         """
         Creates gate connection and returns requests.session
         
-        :param controller_port: Path to Tor Controller
+        :param control_port: Path to Tor Controller
         :param socks_port: Path to Tor Socks
         """
 
         def new_tor_signal():
             if secrets.choice([True, False, False, False, False, False, False, False]):
-                with control.Controller.from_port(port=controller_port) as controller:
+                with control.Controller.from_port(port=control_port) as controller:
                     controller.authenticate()
                     controller.signal(stem.Signal.NEWNYM)
 
@@ -828,7 +828,7 @@ class Tor:
         try:
             new_tor_signal()
         except stem.SocketError:
-            Tor.start_tor_daemon(controller_port, socks_port)
+            Tor.start_tor_daemon(control_port, socks_port)
             new_tor_signal()
         except Exception as e:
             CONSOLE.log(f"[red][Error] Request Error: '{e}'")
