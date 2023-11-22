@@ -7,6 +7,7 @@ import requests
 import subprocess
 from bs4 import BeautifulSoup
 import re
+import socket
 import gnupg
 import psutil
 import json
@@ -725,6 +726,23 @@ class Tor:
                     CONSOLE.log("[red][Error] Tor is probably not installed.")
         except (Exception) as socket_error:
             CONSOLE.log(f"[red][Error] Error connecting to the Tor Control Port '{socket_error}'")
+        
+        return False
+
+    @staticmethod
+    def is_tor_socks_alive() -> bool:
+        "Function to check if the Socks Port is alive"
+
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+
+            sock.connect(("127.0.0.1", SOCKS_PORT))
+        except Exception as e:
+            CONSOLE.log(f"[red][Error] Error while connecting to Socks Port: `{e}`")
+            return False
+        finally:
+            sock.close()
         
         return False
 
