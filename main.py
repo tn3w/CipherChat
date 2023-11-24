@@ -13,10 +13,13 @@ import secrets
 import re
 import json
 import atexit
+from flask import Flask, request, render_template_string
+import logging
 from cons import VERSION, SYSTEM, CONSOLE, DATA_DIR_PATH, CURRENT_DIR_PATH, BRIDGES_CONF_PATH, NEEDED_DIR_PATH, TEMP_DIR_PATH, TOR_PATH, FACTS, TOR_EXT,\
-    PERSISTENT_STORAGE_CONF_PATH, KEY_FILE_PATH_CONF_PATH, SERVICES_CONF_PATH
+    PERSISTENT_STORAGE_CONF_PATH, KEY_FILE_PATH_CONF_PATH, SERVICES_CONF_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, TEMPLATES_DIR_PATH
 from utils import clear_console, is_password_save, get_password_strength, generate_random_string,\
-    download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption
+    download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption, JSON,\
+    AsymmetricEncryption, WebPage, ArgumentValidator, Captcha
 
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
@@ -66,44 +69,6 @@ if not SYSTEM in ["Windows", "Linux", "macOS"]:
 
 
 clear_console()
-
-
-# Choose what bridges to use
-if os.path.isfile(BRIDGES_CONF_PATH):
-    with open(BRIDGES_CONF_PATH, "r") as readable_file:
-        bridges_configuration = readable_file.read().strip()
-    
-    try:
-        bridge_conf = bridges_configuration.split("-")
-        use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
-    except:
-        pass
-else:
-    while True:
-        clear_console()
-
-        type_of_bridge = input("Choose Tor Bridge Type (obfs4, snowflake, webtunnel, meek_lite): ")
-        if type_of_bridge in ["obfs4", "snowflake", "webtunnel", "meek_lite"]:
-            break
-        else:
-            print(f"\n'{type_of_bridge}' is not a bridge type")
-            input("Enter: ")
-    
-    use_build_in = {"y": True, "yes": True, "t": True, "true": True}.get(input("Do you want to use built-in bridges (recommended: no) [y or n]:  ").lower(), False)
-
-    if not os.path.isdir(NEEDED_DIR_PATH):
-        os.mkdir(NEEDED_DIR_PATH)
-    
-    save_content = str(use_build_in) + "-" + type_of_bridge
-    with open(BRIDGES_CONF_PATH, "w") as writeable_file:
-        writeable_file.write(save_content)
-    
-    if not use_build_in:
-        Tor.download_bridges()
-        with CONSOLE.status("Processing Bridges..."):
-            Tor.process_bridges()
-        with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
-            SecureDelete.directory(TEMP_DIR_PATH, quite = True)
 
 
 # Install The Onion Router
@@ -181,11 +146,171 @@ else:
             exit()
 
 
+clear_console()
+
+
 # Running Tor Hidden Service
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
-    os.chdir(CURRENT_DIR_PATH)
-    subprocess.run([EXECUTABLE, "hiddenservice.py"], check=True)
+    service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
+
+    CONTROL_PORT, SOCKS_PORT = Tor.get_ports(as_hidden_service=True)
+
+    if service_setup_info.get("restart_tor", True):
+        if Tor.is_tor_controller_alive(CONTROL_PORT):
+            Tor.kill_tor_daemon(CONTROL_PORT)
+    
+    HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
+    HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
+    HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
+
+    while not Tor.is_tor_controller_alive(CONTROL_PORT):
+        with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
+            tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT, as_service=True)
+        
+    atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
+
+    try:
+        with open(HOSTNAME_PATH, "r") as readable_file:
+            HOSTNAME = readable_file.read()
+    except Exception:
+        HOSTNAME = "???"
+
+    CONSOLE.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
+
+    CAPTCHA_SECRET = generate_random_string(32)
+    ASYMMETRIC_ENCRYPTION = AsymmetricEncryption().generate_keys()
+    PUBLIC_KEY, PRIVATE_KEY = ASYMMETRIC_ENCRYPTION.public_key, ASYMMETRIC_ENCRYPTION.private_key
+
+    app = Flask("CipherChat")
+
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.WARNING)
+
+    @app.route("/ping")
+    def ping():
+        return "Pong! CipherChat Chat Service " + str(VERSION)
+
+    @app.route("/")
+    def index():
+        return WebPage.render_template(os.path.join(TEMPLATES_DIR_PATH, "index.html"))
+
+    @app.route("/safe_usage.txt")
+    def safe_usage():
+        SAFE_USAGE_PATH = os.path.join(TEMPLATES_DIR_PATH, "safe_usage.txt")
+        if not os.path.isfile(SAFE_USAGE_PATH):
+            return "No safe_usage.txt provided."
+        with open(SAFE_USAGE_PATH, "r") as readable_file:
+            safe_usage = readable_file.read()
+
+        new_safe_usage = ""
+        for line in safe_usage.split("\n"):
+            if not line.strip().startswith("#"):
+                new_safe_usage += line + "\n"
+
+        return render_template_string("<pre>{{ safe_usage }}</pre>", safe_usage=new_safe_usage)
+
+    @app.route("/api/public_key")
+    def api_public_key():
+        return PUBLIC_KEY
+
+    @app.route("/api/register_captcha", methods = ["POST"])
+    def api_register_captcha():
+        if not request.method == "POST":
+            return {"status_code": 400, "error": "Invalid Request method"}
+        if not request.is_json:
+            return {"status_code": 400, "error": "No valid data given as json"}
+        
+        data = request.json
+        if not isinstance(data, dict):
+            return {"status_code": 400, "error": "Data is not given as a dictionary"}
+
+        username = data.get("username")
+        hashed_password = data.get("hashed_password")
+        hashed_chat_password = data.get("hashed_chat_password")
+        public_key = data.get("public_key")
+        crypted_private_key = data.get("crypted_private_key")
+        two_factor_token = data.get("two_factor_token")
+
+        is_valid_username, username_error = ArgumentValidator.username(username)
+        if not is_valid_username:
+            return username_error
+        
+        is_valid_hashed_password, hashed_password_error = ArgumentValidator.hashed_password(hashed_password)
+        if not is_valid_hashed_password:
+            return hashed_password_error
+        
+        is_valid_hashed_chat_password, hashed_chat_password_error = ArgumentValidator.hashed_chat_password(hashed_chat_password)
+        if not is_valid_hashed_chat_password:
+            return hashed_chat_password_error
+        
+        is_valid_public_key, public_key_error = ArgumentValidator.public_key(public_key)
+        if not is_valid_public_key:
+            return public_key_error
+        
+        is_valid_crypted_private_key, crypted_private_key_error = ArgumentValidator.crypted_private_key(crypted_private_key)
+        if not is_valid_crypted_private_key:
+            return crypted_private_key_error
+        
+        is_valid_two_factor_token, two_factor_token_error = ArgumentValidator.two_factor_token(two_factor_token)
+        if not is_valid_two_factor_token:
+            return two_factor_token_error
+        
+        data = {
+            "username": username,
+            "hashed_password": hashed_password,
+            "hashed_chat_password": hashed_chat_password,
+            "public_key": public_key,
+            "crypted_private_key": crypted_private_key,
+            "two_factor_token": two_factor_token
+        }
+
+        captcha_image_data, crypted_captcha_prove = Captcha(CAPTCHA_SECRET).generate()
+        
+        return {
+            "image_data": captcha_image_data,
+            "captcha_prove": crypted_captcha_prove
+        }
+
+    app.run(host = "localhost", port = HIDDEN_PORT)
     exit()
+
+
+# Choose what bridges to use
+if os.path.isfile(BRIDGES_CONF_PATH):
+    with open(BRIDGES_CONF_PATH, "r") as readable_file:
+        bridges_configuration = readable_file.read().strip()
+    
+    try:
+        bridge_conf = bridges_configuration.split("-")
+        use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
+    except:
+        pass
+else:
+    while True:
+        clear_console()
+
+        type_of_bridge = input("Choose Tor Bridge Type (obfs4, snowflake, webtunnel, meek_lite): ")
+        if type_of_bridge in ["obfs4", "snowflake", "webtunnel", "meek_lite"]:
+            break
+        else:
+            print(f"\n'{type_of_bridge}' is not a bridge type")
+            input("Enter: ")
+    
+    use_build_in = {"y": True, "yes": True, "t": True, "true": True}.get(input("Do you want to use built-in bridges (recommended: no) [y or n]:  ").lower(), False)
+
+    if not os.path.isdir(NEEDED_DIR_PATH):
+        os.mkdir(NEEDED_DIR_PATH)
+    
+    save_content = str(use_build_in) + "-" + type_of_bridge
+    with open(BRIDGES_CONF_PATH, "w") as writeable_file:
+        writeable_file.write(save_content)
+    
+    if not use_build_in:
+        Tor.download_bridges()
+        with CONSOLE.status("Processing Bridges..."):
+            Tor.process_bridges()
+        with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
+            SecureDelete.directory(TEMP_DIR_PATH, quite = True)
 
 
 # Use Persistent Storage?
