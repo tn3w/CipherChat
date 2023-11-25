@@ -750,7 +750,6 @@ class Tor:
             tor_process = launch_tor_with_config(
                 tor_cmd=TOR_PATH,
                 config=config,
-                take_ownership=True
             )
         except Exception as e:
             CONSOLE.log(f"[red][Error] Error when starting Tor: '{e}'")
