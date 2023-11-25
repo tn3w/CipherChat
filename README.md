@@ -18,11 +18,20 @@ A. Use git
     ```
  3. Install all required packages
     ```bash
-    python3 -m pip install requirements.txt
+    python3 -m pip install -r requirements.txt
+    ```
+    Or create a virtual environment with python3-venv and install the packages
+    ```bash
+    python3 -m venv .venv
+    .venv/bin/python -m pip install -r requirements.txt
     ```
  4. Launch CipherChat
     ```bash
-    python3 main.py
+    python3 main.py -h
+    ```
+    Or with a virtual environment:
+    ```bash
+    .venv/bin/python main.py -h
     ```
 
 <br>
@@ -43,11 +52,20 @@ B. (Recommended for TOR users) Install via ZIP
     ```
  4. Install all required packages
     ```bash
-    python3 -m pip install requirements.txt
+    python3 -m pip install -r requirements.txt
+    ```
+    Or create a virtual environment with python3-venv and install the packages
+    ```bash
+    python3 -m venv .venv
+    .venv/bin/python -m pip install -r requirements.txt
     ```
  5. Launch CipherChat
     ```bash
-    python3 main.py
+    python3 main.py -h
+    ```
+    Or with a virtual environment:
+    ```bash
+    .venv/bin/python3 main.py -h
     ```
 
 ## 📖 What does CipherChat want to achieve?
