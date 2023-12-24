@@ -194,6 +194,12 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     def index():
         return WebPage.render_template(os.path.join(TEMPLATES_DIR_PATH, "index.html"))
 
+    @app.route("/setup")
+    @app.route("/setup/")
+    @app.route("/setup/<os>")
+    def setup(os: str = None):
+        return WebPage.render_template(os.path.join(TEMPLATES_DIR_PATH, "setup.html"), None, os=os, hidden_service_hostname = HOSTNAME)
+
     @app.route("/safe_usage.txt")
     def safe_usage():
         SAFE_USAGE_PATH = os.path.join(TEMPLATES_DIR_PATH, "safe_usage.txt")
