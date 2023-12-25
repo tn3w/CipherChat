@@ -68,6 +68,84 @@ B. (Recommended for TOR users) Install via ZIP
     .venv/bin/python3 main.py -h
     ```
 
+<br>
+
+## 🌉 Bridge types
+### Vanilla Bridges
+A Vanilla Tor Bridge is a basic type of bridge that helps users access the Tor network when regular access is blocked.
+It disguises Tor traffic, making it harder for censors to identify and block it.
+
+**Security:**
+- Offers a basic level of protection by obfuscating Tor traffic.
+- May be less effective in highly restrictive censorship environments where more sophisticated methods are employed to detect and block Tor traffic.
+
+e.g.: `45.33.1.189:443 F9DFF618E7BA6C018245D417F39E970C2F019BAA`
+
+<br>
+
+### OBFS4 Bridges
+OBFS4 (Obfuscation 4) is an improved version of the obfsproxy protocol, designed to better disguise Tor traffic.
+It adds an extra layer of obfuscation to make it even more challenging for censors to recognize and block Tor usage.
+
+**Security:**
+- Provides a higher level of security compared to Vanilla bridges.
+- Effective against more advanced censorship techniques, making it harder for authorities to identify and block Tor traffic.
+
+e.g.: `obfs4 85.31.186.98:443 011F2599C0E9B27EE74B353155E244813763C3E5 cert=ayq0XzCwhpdysn5o0EyDUbmSOx3X/oTEbzDMvczHOdBJKlvIdHHLJGkZARtT4dcBFArPPg iat-mode=0`
+
+<br>
+
+### WebTunnel Bridges
+WebTunnel is a type of bridge that disguises Tor traffic by making it look like regular web traffic.
+It mimics the communication patterns of common web protocols, making it difficult for censors to distinguish Tor traffic from regular internet traffic.
+
+**Security:**
+- Offers a robust level of protection by blending Tor traffic with normal web traffic.
+- Effective in circumventing censorship that focuses on blocking Tor specifically.
+
+e.g.: `webtunnel [2001:db8:9443:367a:3276:1e74:91c3:7a5a]:443 54BF1146B161573185FBA0299B0DC3A8F7D08080 url=https://d3pyjtpvxs6z0u.cloudfront.net/Exei6xoh1aev8fiethee ver=0.0.1`
+
+<br>
+
+### Snowflake Bridges
+Snowflake is unique as it relies on volunteers' web browsers to act as temporary proxies for users in censored regions.
+When someone uses Tor with a Snowflake bridge, their traffic is routed through these volunteer-operated proxies, adding an extra layer of indirection.
+
+**Security:**
+- Provides a decentralized approach to bypassing censorship.
+- While it helps against censorship, the security depends on the reliability of the volunteer-operated proxies.
+
+e.g.: `snowflake 192.0.2.3:80 2B280B23E1107BB62ABFC40DDCC8824814F80A72 fingerprint=2B280B23E1107BB62ABFC40DDCC8824814F80A72 url=https://snowflake-broker.torproject.net.global.prod.fastly.net/ front=foursquare.com ice=stun:stun.l.google.com:19302,stun:stun.antisip.com:3478,stun:stun.bluesip.net:3478,stun:stun.dus.net:3478,stun:stun.epygi.com:3478,stun:stun.sonetel.com:3478,stun:stun.uls.co.za:3478,stun:stun.voipgate.com:3478,stun:stun.voys.nl:3478 utls-imitate=hellorandomizedalpn`
+
+<br>
+
+### Meek Lite (also known as Meek Azure) Bridges
+Meek Lite uses cloud services, like Microsoft Azure, to disguise Tor traffic as innocuous-looking communication with these cloud services.
+It makes Tor traffic appear similar to regular traffic to major cloud providers.
+
+**Security:**
+- Offers a high level of security by leveraging the reputation and ubiquity of major cloud services.
+- Effective against censorship that targets Tor by making the traffic indistinguishable from common cloud service usage.
+
+e.g.: `meek_lite 192.0.2.18:80 BE776A53492E1E044A26F17306E1BC46A55A1625 url=https://meek.azureedge.net/ front=ajax.aspnetcdn.com`
+
+<br>
+
+### Random Selection
+Safely selects random bridges of all types
+
+**Security:**
+- Using a combination of bridge types provides a diverse and robust strategy to bypass censorship.
+- However, the weaknesses of different bridge types come together and can have a negative impact on safety
+
+<br>
+
+### 👉🏼👤 Recommendation:
+For users in highly censored regions, where the primary concern is overcoming censorship, OBFS4 is recommended for its robust obfuscation capabilities.
+For users in regions with less censorship, Vanilla bridges may offer a good balance between performance and anonymity.
+
+<br>
+
 ## 📖 What does CipherChat want to achieve?
 
 CipherChat mainly tries to achieve the following:
