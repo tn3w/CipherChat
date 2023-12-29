@@ -161,7 +161,7 @@ The client uses built-in bridges, which means that the bridges used for the obfu
 
 ### External bridges
 Bridges are queried from an external instance, either the official BridgeDB from Tor at [https://bridges.torproject.org/]() or an unofficial project on Github which collects bridges and has a larger collection of bridges: [https://github.com/scriptzteam/Tor-Bridges-Collector](https://github.com/scriptzteam/Tor-Bridges-Collector)
-For a better distinction between the two options, there is a section below.
+For a better distinction between the two options, there is a [section below](#-bridgedb-or-unofficial-project).
 
 **Benefits:**
 - External bridges offer better anti-censorship measures, as new bridges can be used.
@@ -214,6 +214,24 @@ Bridges are downloaded from an automatic bridge collection project on Github: [h
 
 ### 👉🏼👤 Recommendation:
 Use BridgeDB if you want good, secure bridges, don't use BridgeDB if you want diverse bridges 
+
+<br>
+
+## 🗃️ Use persistent storage?
+Persistent storage refers to the storage of data over a longer period of time, even when the application is switched off. In the context of CipherChat, which is designed for privacy and anonymity, persistent storage refers to the fact that certain data, settings or files are stored on a disk and retained between sessions.
+If you use Persisten Storage, your data is securely encrypted with a password and only then stored.
+
+**Benefits:**
+- Individual settings and configurations can be saved and do not have to be re-entered each time
+
+**Disadvantages:**
+- Persistent storage can be a security risk, if your password is compromised, private data such as your chat messages could be read
+
+### 👉🏼👤 Recommendation:
+You should ask yourself the following questions to check whether you should use Persistent Storage:
+1. Is my Persistent Storage password secure?
+2. Is facilitating the use of persistent storage, where, for example, passwords can be stored, a concern for me in terms of compromising messages?
+If you cannot clearly answer YES to both questions above, do not use persistent storage.
 
 <br>
 
