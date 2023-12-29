@@ -227,10 +227,13 @@ If you use Persisten Storage, your data is securely encrypted with a password an
 **Disadvantages:**
 - Persistent storage can be a security risk, if your password is compromised, private data such as your chat messages could be read
 
+<br>
+
 ### 👉🏼👤 Recommendation:
 You should ask yourself the following questions to check whether you should use Persistent Storage:
 1. Is my Persistent Storage password secure?
 2. Is facilitating the use of persistent storage, where, for example, passwords can be stored, a concern for me in terms of compromising messages?
+
 If you cannot clearly answer YES to both questions above, do not use persistent storage.
 
 <br>
