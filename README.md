@@ -146,6 +146,77 @@ For users in regions with less censorship, Vanilla bridges may offer a good bala
 
 <br>
 
+## 🛠️ Built-in or external bridges?
+### Built-in
+The client uses built-in bridges, which means that the bridges used for the obfuscated connection to the Tor service are already stored in the software and do not have to be queried externally.
+
+**Benefits:**
+- Offers simple configuration and faster use of CipherChat as bridges do not have to be queried or built-in bridges do not have to be selected first
+- No dependency on external services such as BridgeDB
+
+**Disadvantages:**
+- Built-in bridges may already be blocked or detected by countries or organizations, which means that a certain entity knows that you are trying to use TOR or send or receive data anonymously
+
+<br>
+
+### External bridges
+Bridges are queried from an external instance, either the official BridgeDB from Tor at [https://bridges.torproject.org/]() or an unofficial project on Github which collects bridges and has a larger collection of bridges: [https://github.com/scriptzteam/Tor-Bridges-Collector](https://github.com/scriptzteam/Tor-Bridges-Collector)
+For a better distinction between the two options, there is a section below.
+
+**Benefits:**
+- External bridges offer better anti-censorship measures, as new bridges can be used.
+- It gives the client greater flexibility, as different bridges can be selected.
+- It is more resistant to blockages because, as mentioned above, new bridges are added every day and these can be utilized.
+
+**Disadvantages:**
+- There are delays because the client has to select the best bridge first
+- When querying the bridges, built-in bridges are used first. Your traffic could be recognized here.
+
+<br>
+
+### 👉🏼👤 Recommendation:
+Use built-in bridges if you don't want any effort, use external bridges if you want new / non-blocked bridges
+
+<br>
+
+## 💽 BridgeDB or unofficial project?
+### BridgeDB
+Tor's BridgeDB at [https://bridges.torproject.org/](https://bridges.torproject.org/) is the official interface that Tor Browser uses to request bridges
+
+**Benefits:**
+- The bridges provided are of high quality and do not need to be checked before use
+- Using BridgeDB is safer
+
+**Disadvantages:**
+- BridgeDB always returns only 2 bridges per type, which does not offer high diversity
+  e.g.:
+  ```json
+  [
+    "193.182.000.000:37 SIGNATURE",
+    "85.221.000.000:9001 SIGNATURE"
+  ]
+  ```
+- BridgeDB requires a captcha before bridges can be downloaded
+
+<br>
+
+### Unofficial Github project
+Bridges are downloaded from an automatic bridge collection project on Github: [https://github.com/scriptzteam/Tor-Bridges-Collector](https://github.com/scriptzteam/Tor-Bridges-Collector)
+
+**Benefits:**
+- Many bridges are being downloaded
+- No captcha is required
+
+**Disadvantages:**
+- Some of the loaded bridges are already old, offline or slow, which means that bridges must first be validated, which can take time
+
+<br>
+
+### 👉🏼👤 Recommendation:
+Use BridgeDB if you want good, secure bridges, don't use BridgeDB if you want diverse bridges 
+
+<br>
+
 ## 📖 What does CipherChat want to achieve?
 
 CipherChat mainly tries to achieve the following:
