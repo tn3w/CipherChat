@@ -190,22 +190,21 @@
 
                     fileInput.addEventListener('change', async function (event) {
                         var selectedFile = event.target.files[0];
-                        try {
-                            sha256 = forge.md.sha256.create();
-                            await readFile(selectedFile);
-                            var fileActualChecksum = sha256.digest().toHex();
+                        const serverChecksum = "{{ sha256_checksum }}";
+                        generateSHA256Checksum(selectedFile)
+                            .then((checksum) => {
+                                console.log(serverChecksum);
+                                console.log(checksum);
 
-                            serverChecksum = downloadChecksum();
+                                const isVerified = serverChecksum === checksum;
 
-                            const isVerified = fileActualChecksum === serverChecksum;
-
-                            document.getElementById("progressBar").style.display = "none";
-                            
-                            displayResult(isVerified);
-                        } catch (err) {
-                            displayResult(false);
-                            return;
-                        }
+                                document.getElementById("progressBar").style.display = "none";
+                                
+                                displayResult(isVerified);
+                            })
+                            .catch((error) => {
+                                displayResult(false);
+                            });
                     });
 
                     fileInput.click();
@@ -246,75 +245,44 @@
             }
             {% endif %}
 
-            async function readFile(file) {
-                var CHUNK_SIZE = 2 * 1024 *1024;
-                var offset = 0;
-                lastCalculatedPercentage=0;
-                while(true) {
-                    var chunk = await readChunk(file, offset, CHUNK_SIZE);
-                    sha256.update(chunk);
-                    offset+=chunk.length;
+            async function generateSHA256Checksum(file) {
+                var sha256 = forge.md.sha256.create();
 
-                    const progressPercent = parseInt((offset * 50.0) / file.size);
-                    if (progressPercent !== lastCalculatedPercentage) {
-                        lastCalculatedPercentage = progressPercent;
-                        var progressBar = document.getElementById("progressBar");
-                        
-                        progressBar.style.display = "block";
-                        if (isFinite(lastCalculatedPercentage)){
-                            progressBar.value = progressPercent - 50;
-                        }
-                    }
+                function updateChecksum(chunk) {
+                    var buffer = new Uint8Array(chunk);
+                    sha256.update(buffer);
+                }
 
-                    if (chunk.length < CHUNK_SIZE) {
-                        return;
-                    }
+                async function readAndHashFile(file) {
+                    return new Promise((resolve, reject) => {
+                        var reader = new FileReader();
+
+                        reader.onload = function (event) {
+                            updateChecksum(event.target.result);
+
+                            if (event.target.readyState === FileReader.DONE) {
+                                resolve();
+                            }
+                        };
+
+                        reader.onerror = function (event) {
+                            reject(new Error("Error reading file: " + event.target.error));
+                        };
+
+                        reader.readAsArrayBuffer(file);
+                    });
+                }
+
+                try {
+                    await readAndHashFile(file);
+                    var fileChecksum = sha256.digest().toHex();
+                    return fileChecksum;
+                } catch (error) {
+                    console.error("Error generating SHA-256 checksum:", error);
+                    throw error;
                 }
             }
 
-            function downloadChecksum() {
-                const url = 'https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip';
-                const sha256 = forge.md.sha256.create();
-
-                const response = await fetch(url);
-                const contentLength = response.headers.get('Content-Length');
-                const total = parseInt(contentLength, 10);
-                let loaded = 0;
-
-                const reader = response.body.getReader();
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    sha256.update(forge.util.createBuffer(value));
-                    loaded += value.length;
-
-                    const progressPercent = Math.round((loaded / total) * 50);
-
-                    var progressBar = document.getElementById("progressBar");
-                    progressBar.style.display = "block";
-                    if (isFinite(progressPercent)){
-                        progressBar.value = progressPercent + 50;
-                    }
-                }
-
-                const fileActualChecksum = sha256.digest().toHex();
-                return fileActualChecksum;
-            }
-
-            function readChunk(file, chunk_offset, chunk_size) {
-                return new Promise(function(resolve, reject) {
-                    let fr = new FileReader();
-                    fr.onload = e => {
-                        resolve(e.target.result);
-                    };
-                    fr.onerror = (e) => {
-                        reject(e);
-                    };
-                    let slice = file.slice(chunk_offset, chunk_offset + chunk_size);
-                    fr.readAsBinaryString(slice);
-                });
-            }
 
             function displayResult(isVerified) {
                 var result = document.getElementById('result');
@@ -377,7 +345,6 @@
                 <div class="step">4. Verify your download:</div><br>
                 <a class="button" id="selectDownload">Select your download...</a>
                 <br>
-                <progress value="0" max="100" id="progressBar"></progress>
                 <p id="result" style="display: none;"></p>
                 <p>or verify using the <a href="openpgp-signature.asc" download>OpenPGP signature</a>.</p>
 
@@ -421,7 +388,6 @@
             <div class="step">4. Verify your download:</div><br>
             <a class="button" id="selectDownload">Select your download...</a>
             <br>
-            <progress value="0" max="100" id="progressBar"></progress>
             <p id="result" style="display: none;"></p>
             <p>or verify using the <a href="openpgp-signature.asc" download>OpenPGP signature</a>.</p>
 
@@ -462,7 +428,6 @@
             <div class="step">4. Verify your download:</div><br>
             <a class="button" id="selectDownload">Select your download...</a>
             <br>
-            <progress value="0" max="100" id="progressBar"></progress>
             <p id="result" style="display: none;"></p>
             <p>or verify using the <a href="openpgp-signature.asc" download>OpenPGP signature</a>.</p>
 
@@ -503,7 +468,6 @@
             <div class="step">4. Verify your download:</div><br>
             <a class="button" id="selectDownload">Select your download...</a>
             <br>
-            <progress value="0" max="100" id="progressBar"></progress>
             <p id="result" style="display: none;"></p>
             <p>or verify using the <a href="openpgp-signature.asc" download>OpenPGP signature</a>.</p>
 

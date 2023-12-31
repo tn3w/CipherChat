@@ -24,9 +24,7 @@ import hashlib
 from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
 import requests
 from bs4 import BeautifulSoup
-from rich.style import Style
 from rich.theme import Theme
-from rich.text import Text
 from rich.progress import Progress
 from rich.console import Console
 import distro
@@ -294,9 +292,10 @@ class Proxy:
         }
         return session
 
-def download_file(url: str, dict_path: str,
+def download_file(url: str, dict_path: Optional[str] = None,
                   operation_name: Optional[str] = None, file_name: Optional[str] = None,
-                  session: Optional[requests.Session] = None) -> Optional[str]:
+                  session: Optional[requests.Session] = None,
+                  return_as_bytes: bool = False) -> Optional[Union[str, bytes]]:
     """
     Function to download a file
 
@@ -305,38 +304,46 @@ def download_file(url: str, dict_path: str,
     :param operation_name: Sets the name of the operation in the console (Optional)
     :param file_name: Sets the file name (Optional)
     :param session: a requests.Session (Optional)
+    :param return_as_bytes: If True, the function returns a bytes instead of a file path
     """
 
     if session is None:
         session = Proxy.get_requests_session()
 
-    if file_name is None:
-        parsed_url = urlparse(url)
-        file_name = os.path.basename(parsed_url.path)
+    if not return_as_bytes:
+        if file_name is None:
+            parsed_url = urlparse(url)
+            file_name = os.path.basename(parsed_url.path)
 
-    save_path = os.path.join(dict_path, file_name)
+        save_path = os.path.join(dict_path, file_name)
 
-    if os.path.isfile(save_path):
-        return save_path
+        if os.path.isfile(save_path):
+            return save_path
 
     progress = Progress()
 
     with progress:
         downloaded_bytes = 0
 
-        with open(save_path, 'wb') as file:
-            try:
-                response = session.get(
-                    url, stream=True, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=5
-                )
-                response.raise_for_status()
-            except Exception as e:
-                CONSOLE.log(f"[red][Error] Error downloading the file: '{e}'")
-                return None
+        if not return_as_bytes:
+            file = open(save_path, 'wb')
+        else:
+            file_bytes = b''
 
-            if response.status_code == 200:
-                total_length = int(response.headers.get('content-length'))
+        try:
+            response = session.get(
+                url, stream=True, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=5
+            )
+            response.raise_for_status()
+        except Exception as e:
+            CONSOLE.log(f"[red][Error] Error downloading the file: '{e}'")
+            return None
 
+        if response.status_code == 200:
+            total_length = int(response.headers.get('content-length'))
+
+            
+            if not total_length is None:
                 if operation_name:
                     task = progress.add_task(
                         f"[cyan]Downloading {operation_name}...",
@@ -344,16 +351,24 @@ def download_file(url: str, dict_path: str,
                     )
                 else:
                     task = progress.add_task("[cyan]Downloading...", total=total_length)
-
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
+            
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    if not return_as_bytes:
                         file.write(chunk)
+                    else:
+                        file_bytes += chunk
+
+                    if not total_length is None:
                         downloaded_bytes += len(chunk)
-
                         progress.update(task, completed=downloaded_bytes)
-            else:
-                return None
+        else:
+            return None
 
+    if return_as_bytes:
+        return file_bytes
+
+    file.close()
     return save_path
 
 def is_password_pwned(password: str, session = Optional[requests.Session]) -> bool:

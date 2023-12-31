@@ -19,6 +19,7 @@ from typing import Optional
 from getpass import getpass
 from rich.console import Console
 from rich.style import Style
+import hashlib
 from flask import Flask, abort
 from utils import clear_console, get_system_architecture, download_file, get_gnupg_path,\
                   get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
@@ -169,6 +170,11 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     clear_console()
     CONSOLE.print("[bold]~~~ Starting Tor Hidden Service ~~~", style=ORANGE_STYLE)
 
+    file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master", return_as_bytes = True)
+    with CONSOLE.status("[green]Generating sha256 checksum..."):
+        sha256_checksum = hashlib.sha256(file_bytes).hexdigest()
+    CONSOLE.print("[green]~ Generating sha256 checksum... Done")
+
     with CONSOLE.status("[green]Getting Tor Configuration..."):
         control_port, socks_port = Tor.get_ports(9000)
         configuration = Tor.get_hidden_service_config()
@@ -236,7 +242,8 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
         if without_ui:
             return abort(404)
 
-        return WebPage.render_template("setup.html", None, os = operating_system, hidden_service_hostname = HOSTNAME)
+        return WebPage.render_template("setup.html", None, os = operating_system, hidden_service_hostname = HOSTNAME,
+                                       sha256_checksum = sha256_checksum)
 
     @app.route("/api/public_key")
     def api_public_key():
