@@ -508,6 +508,8 @@ if use_persistant_storage is None:
     if use_persistant_storage:
         input_store_user_data = input("Do you want us to save usernames and passwords? [y - yes or n - no] ")
         store_user_data = input_store_user_data.lower().startswith("y")
+    else:
+        store_user_data = False
 
 if use_persistant_storage:
     while persistent_storage_password is None:
