@@ -195,9 +195,9 @@
                             await readFile(selectedFile);
                             var fileActualChecksum = sha256.digest().toHex();
 
-                            serverHash = "please-change";
+                            serverChecksum = downloadChecksum();
 
-                            const isVerified = fileActualChecksum === serverHash;
+                            const isVerified = fileActualChecksum === serverChecksum;
 
                             document.getElementById("progressBar").style.display = "none";
                             
@@ -255,14 +255,14 @@
                     sha256.update(chunk);
                     offset+=chunk.length;
 
-                    const progressPercent = parseInt((offset * 100.0) / file.size);
+                    const progressPercent = parseInt((offset * 50.0) / file.size);
                     if (progressPercent !== lastCalculatedPercentage) {
                         lastCalculatedPercentage = progressPercent;
                         var progressBar = document.getElementById("progressBar");
                         
                         progressBar.style.display = "block";
                         if (isFinite(lastCalculatedPercentage)){
-                            progressBar.value = progressPercent;
+                            progressBar.value = progressPercent - 50;
                         }
                     }
 
@@ -270,6 +270,36 @@
                         return;
                     }
                 }
+            }
+
+            function downloadChecksum() {
+                const url = 'https://github.com/tn3w/CipherChat/archive/refs/heads/master.zip';
+                const sha256 = forge.md.sha256.create();
+
+                const response = await fetch(url);
+                const contentLength = response.headers.get('Content-Length');
+                const total = parseInt(contentLength, 10);
+                let loaded = 0;
+
+                const reader = response.body.getReader();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    sha256.update(forge.util.createBuffer(value));
+                    loaded += value.length;
+
+                    const progressPercent = Math.round((loaded / total) * 50);
+
+                    var progressBar = document.getElementById("progressBar");
+                    progressBar.style.display = "block";
+                    if (isFinite(progressPercent)){
+                        progressBar.value = progressPercent + 50;
+                    }
+                }
+
+                const fileActualChecksum = sha256.digest().toHex();
+                return fileActualChecksum;
             }
 
             function readChunk(file, chunk_offset, chunk_size) {
