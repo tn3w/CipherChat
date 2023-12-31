@@ -1,110 +1,154 @@
-import threading
-from typing import Tuple, Optional, Union
+""" 
+~-~-~-~
+This is a copy of the free chat program "CipherChat" under GPL-3.0 license
+GitHub: https://github.com/tn3w/CipherChat
+~-~-~-~
+"""
+
 import os
-import distro
-import shutil
-import requests
-import subprocess
-from bs4 import BeautifulSoup
-import re
-import socket
-import gnupg
-import psutil
-import json
-import rarfile
-from stem.process import launch_tor_with_config
-from stem import control
-import stem
-from rich.progress import Progress
+from typing import Tuple, Optional, Union
+import platform
 import secrets
+import random
+import shutil
+import subprocess
+import concurrent.futures
+import multiprocessing
+from urllib.parse import urlparse
+import time
+import socket
+import json
+import sys
+import re
 import hashlib
 from base64 import urlsafe_b64encode, urlsafe_b64decode, b64encode, b64decode
+import requests
+from bs4 import BeautifulSoup
+from rich.style import Style
+from rich.theme import Theme
+from rich.text import Text
+from rich.progress import Progress
+from rich.console import Console
+import distro
+from stem.control import Controller
+from stem import Signal
+import psutil
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization, padding as sym_padding
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding as asy_padding
 from jinja2 import Environment, select_autoescape, Undefined
-from captcha.image import ImageCaptcha
-from cons import LOGO, NEEDED_DIR_PATH, DOD_PATTERNS, GUTMANN_PATTERNS, CONSOLE, DISTRO_TO_PACKAGE_MANAGER, PACKAGE_MANAGERS,\
-    GNUPG_PATH, KEYSERVER_URLS, TEMP_DIR_PATH, DOWNLOAD_BRIDGE_URLS, IP_VERSIONS, BRIDGES_CONF_PATH, DEFAULT_BRIDGES_CONF,\
-    SNOWFLAKE_BUILDIN_BRIDGES, WEBTUNNEL_BUILDIN_BRIDGES, MEEKLITE_BUILDIN_BRIDGES, OBFS4_BUILDIN_BRIDGES, SYSTEM, SERVICE_SETUP_CONF_PATH,\
-    DEFAULT_HIDDEN_SERVICE_DIR_PATH, TOR_PATH, USERS_HIDDEN_SERVICE_PATH
+from PIL import Image
+from io import BytesIO
+from cons import USER_AGENTS, DISTRO_TO_PACKAGE_MANAGER, PACKAGE_MANAGERS,\
+                 DATA_DIR_PATH, BRIDGE_DOWNLOAD_URLS, TEMP_DIR_PATH, DEFAULT_BRIDGES,\
+                 CURRENT_DIR_PATH, HTTP_PROXIES, HTTPS_PROXIES, BRIDGE_FILES
 
+if __name__ == "__main__":
+    print("Use `python main.py`")
+    sys.exit(0)
+
+LOGO_SMALL = '''
+ dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
+dP   `" 88 88__dP 88  88 88__   88__dP dP   `" 88  88   dPYb     88   
+Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88   
+ YboodP 88 88     88  88 888888 88  Yb  YboodP 88  88 dP""""Yb   88   
+
+-~-    Programmed by TN3W - https://github.com/tn3w/CipherChat    -~-
+'''
+
+LOGO_BIG = '''
+             @@@@@            
+       @@@@@@@@@@@@@@@@@      
+    @@@@@@@@@@@@@@@   @@@@@   
+  @@@@@@@@@@@@@@ @@@@@@  @@@@ 
+ @@@@@@@@@@@@@@@@@@  @@@@  @@@   dP""b8 88 88""Yb 88  88 888888 88""Yb  dP""b8 88  88    db    888888 
+ @@@@@@@@@@@@@@@ @@@@  @@@ @@@  dP   `" 88 88__dP 88  88 88__   88__dP dP   `" 88  88   dPYb     88   
+@@@@@@@@@@@@@@@@   @@  @@@  @@@ Yb      88 88"""  888888 88""   88"Yb  Yb      888888  dP__Yb    88   
+ @@@@@@@@@@@@@@@ @@@@  @@@ @@@   YboodP 88 88     88  88 888888 88  Yb  YboodP 88  88 dP""""Yb   88  
+ @@@@@@@@@@@@@@@@@@  @@@@ @@@@  -~-    Programmed by TN3W - https://github.com/tn3w/CipherChat    -~-
+  @@@@@@@@@@@@@@@@@@@@@  @@@  
+    @@@@@@@@@@@@@@@   @@@@@   
+       @@@@@@@@@@@@@@@@@      
+'''
+
+styled_logo = ""
+for char in LOGO_BIG:
+    if char == '@':
+        styled_logo += f'[purple]{char}[/purple]'
+    else:
+        styled_logo += f'[not bold white]{char}[/not bold white]'
+
+custom_theme = Theme({
+    "purple": "rgb(125,70,152)",
+    "white": "rgb(211,215,207)"
+})
+CONSOLE = Console(theme=custom_theme)
+
+def get_console_columns():
+    "Returns the console columns"
+
+    if os.name == 'nt':
+        _, columns = shutil.get_terminal_size()
+        return columns
+    else:
+        _, columns = os.popen('stty size', 'r').read().split()
+        return int(columns)
 
 def clear_console():
     "Cleans the console and shows logo"
 
     os.system('cls' if os.name == 'nt' else 'clear')
-    print(LOGO)
+
+    console_columns = get_console_columns()
+
+    if console_columns > 104:
+        CONSOLE.print(styled_logo)
+    elif console_columns > 71:
+        print(LOGO_SMALL)
+    else:
+        print('-~- CIPHERCHAT -~-\n')
 
 
-def download_file(url: str, save_path: str, operation_name: Optional[str] = None) -> bool:
+def get_system_architecture() -> Tuple[str, str]:
+    "Function to get the correct system information"
+
+    system = platform.system()
+    if system == "Darwin":
+        system = "macOS"
+
+    machine_mappings = {
+        "AMD64": "x86_64",
+        "i386": "i686"
+    }
+
+    machine = platform.machine()
+
+    machine = machine_mappings.get(machine, "x86_64")
+
+    return system, machine
+
+def shorten_text(text: str, length: int) -> str:
     """
-    Function to download a file
+    Function to shorten the text and append "...".
 
-    :param url: The url of the file
-    :param save_path: Specifies where to save the file
-    :param operation_name: Sets the name of the operation in the console (Optional)
-    """
-
-    progress = Progress()
-
-    with progress:
-
-        downloaded_bytes = 0
-
-        with open(save_path, 'wb') as file:
-            try:
-                response = requests.get(url, stream=True)
-            except:
-                return False
-
-            if response.status_code == 200:
-                total_length = int(response.headers.get('content-length'))
-
-                if operation_name:
-                    task = progress.add_task(f"[cyan]Downloading {operation_name}...", total=total_length)
-                else:
-                    task = progress.add_task(f"[cyan]Downloading...", total=total_length)
-
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        file.write(chunk)
-                        downloaded_bytes += len(chunk)
-
-                        progress.update(task, completed=downloaded_bytes)
-            else:
-                return False
-    return True
-
-
-def get_password_strength(password: str) -> int:
-    """
-    Function to get a password strength from 0 (bad) to 100% (good)
-
-    :param password: The password to check
+    :param text: The text to be shortened
+    :param length: The length of the text
     """
 
-    strength = (len(password) * 62.5) / 20
+    if len(text) > length:
+        text = text[:length] + "..."
+    return text
 
-    if strength > 70:
-        strength = 70
+def atexit_terminate_tor(control_port, control_password, tor_process):
+    with CONSOLE.status("[green]Terminating Tor..."):
+        Tor.send_shutdown_signal(control_port, control_password)
+        time.sleep(1)
+        tor_process.terminate()
 
-    if re.search(r'[A-Z]', password):
-        strength += 12.5
-    if re.search(r'[a-z]', password):
-        strength += 12.5
-    if re.search(r'[!@#$%^&*()_+{}\[\]:;<>,.?~\\]', password):
-        strength += 12.5
-
-    if strength > 100:
-        strength = 100
-
-    return round(strength)
-
-
-def generate_random_string(length: int, with_punctuation: bool = True, with_letters: bool = True) -> str:
+def generate_random_string(length: int, with_punctuation: bool = True,
+                           with_letters: bool = True) -> str:
     """
     Generates a random string
 
@@ -124,106 +168,235 @@ def generate_random_string(length: int, with_punctuation: bool = True, with_lett
     random_string = ''.join(secrets.choice(characters) for _ in range(length))
     return random_string
 
-
-def is_password_save(password: str) -> Tuple[bool, Optional[str]]:
+def show_image_in_console(image_bytes: bytes) -> None:
     """
-    Function to check passwords
+    Turns a given image into Ascii Art and prints it in the console
+
+    :param image_bytes: The bytes of the image to be displayed in the console
+    """
+
+    img = Image.open(BytesIO(image_bytes))
+
+    ascii_chars = '@%#*+=-:. '
+    width, height = img.size
+    aspect_ratio = height / width
+    new_width = get_console_columns()
+    new_height = int(aspect_ratio * new_width * 0.55)
+    img = img.resize((new_width, new_height))
+    img = img.convert('L')  # Convert to grayscale
+
+    pixels = img.getdata()
+    ascii_str = ''.join([ascii_chars[min(pixel // 25, len(ascii_chars) - 1)] for pixel in pixels])
+    ascii_str_len = len(ascii_str)
+    ascii_img = ''
+    for i in range(0, ascii_str_len, new_width):
+        ascii_img += ascii_str[i:i + new_width] + '\n'
+
+    print(ascii_img)
+
+def get_gnupg_path() -> str:
+    "Function to query the GnuPG path"
+
+    gnupg_path = {
+        "Windows": r"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe",
+        "macOS": "/usr/local/bin/gpg"
+    }.get(SYSTEM, "/usr/bin/gpg")
+
+    command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
+
+    try:
+        result = subprocess.check_output(command, shell=True, text=True)
+        gnupg_path = result.strip()
+    except Exception as e:
+        CONSOLE.log(f"[red][Error] Error when requesting pgp: '{e}'")
+
+    return gnupg_path
+
+def get_password_strength(password: str) -> int:
+    """
+    Function to get a password strength from 0 (bad) to 100% (good)
 
     :param password: The password to check
     """
-    if len(password) < 12:
-        return False, "[Error] Master password must consist of at least 12 characters (a good password usually has 16 characters)"
-    elif not re.search(r'[A-Z]', password):
-        return False, "[Error] Your password does not contain a capital letter."
-    elif not re.search(r'[a-z]', password):
-        return False, "[Error] Your password does not contain a lowercase letter."
-    elif not re.search(r'[!@#$%^&*()_+{}\[\]:;<>,.?~\\]', password):
-        return False, "[Error] Your password does not contain any special characters."
-    
-    password_sha1_hash = hashlib.sha1(password.encode()).hexdigest()
+
+    strength = (len(password) * 62.5) / 16
+
+    if strength > 70:
+        strength = 70
+
+    if re.search(r'[A-Z]', password):
+        strength += 5
+    if re.search(r'[a-z]', password):
+        strength += 5
+    if re.search(r'[!@#$%^&*()_+{}\[\]:;<>,.?~\\]', password):
+        strength += 20
+
+    if strength > 100:
+        strength = 100
+    return round(strength)
+
+class Proxy:
+    "Includes all functions that have something to do with proxies"
+
+    @staticmethod
+    def _select_random(proxys: list, quantity: int = 1) -> Union[list, str]:
+        """
+        Selects random proxys that are online
+        
+        :param quantity: How many proxys should be selected
+        """
+        
+        selected_proxies = []
+        checked_proxies = []
+
+        while len(selected_proxies) < quantity:
+            if len(proxys) <= len(checked_proxies):
+                break
+
+            random_proxy = secrets.choice(proxys)
+            while random_proxy in checked_proxies:
+                random_proxy = secrets.choice(proxys)
+
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+
+                ip, port = random_proxy.split(":")
+                sock.connect((ip, int(port)))
+            except:
+                pass
+            else:
+                selected_proxies.append(random_proxy)
+
+            checked_proxies.append(random_proxy)
+
+        while len(selected_proxies) < quantity:
+            random_proxy = secrets.choice(proxys)
+            if not random_proxy in selected_proxies:
+                selected_proxies.append(random_proxy)
+
+        if quantity == 1:
+            return selected_proxies[0]
+
+        return selected_proxies
+
+    @staticmethod
+    def get_requests_session() -> requests.Session:
+        "Returns a requests.session object with a selected proxy"
+
+        http_proxie = Proxy._select_random(HTTP_PROXIES)
+        https_proxie = Proxy._select_random(HTTPS_PROXIES)
+
+        session = requests.Session()
+        session.proxies = {
+            "http": http_proxie,
+            "https:": https_proxie
+        }
+        return session
+
+def download_file(url: str, dict_path: str,
+                  operation_name: Optional[str] = None, file_name: Optional[str] = None,
+                  session: Optional[requests.Session] = None) -> Optional[str]:
+    """
+    Function to download a file
+
+    :param url: The url of the file
+    :param dict_path: Specifies the directory where the file should be saved
+    :param operation_name: Sets the name of the operation in the console (Optional)
+    :param file_name: Sets the file name (Optional)
+    :param session: a requests.Session (Optional)
+    """
+
+    if session is None:
+        session = Proxy.get_requests_session()
+
+    if file_name is None:
+        parsed_url = urlparse(url)
+        file_name = os.path.basename(parsed_url.path)
+
+    save_path = os.path.join(dict_path, file_name)
+
+    if os.path.isfile(save_path):
+        return save_path
+
+    progress = Progress()
+
+    with progress:
+        downloaded_bytes = 0
+
+        with open(save_path, 'wb') as file:
+            try:
+                response = session.get(
+                    url, stream=True, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=5
+                )
+                response.raise_for_status()
+            except Exception as e:
+                CONSOLE.log(f"[red][Error] Error downloading the file: '{e}'")
+                return None
+
+            if response.status_code == 200:
+                total_length = int(response.headers.get('content-length'))
+
+                if operation_name:
+                    task = progress.add_task(
+                        f"[cyan]Downloading {operation_name}...",
+                        total=total_length
+                    )
+                else:
+                    task = progress.add_task("[cyan]Downloading...", total=total_length)
+
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        file.write(chunk)
+                        downloaded_bytes += len(chunk)
+
+                        progress.update(task, completed=downloaded_bytes)
+            else:
+                return None
+
+    return save_path
+
+def is_password_pwned(password: str, session = Optional[requests.Session]) -> bool:
+    """
+    Ask pwnedpasswords.com if password is available in data leak
+
+    :param password: Password to check against
+    :param session: a requests.Session Object (Optional)
+    """
+
+    if session is None:
+        session = Proxy.get_requests_session()
+
+    password_sha1_hash = hashlib.sha1(password.encode()).hexdigest().upper()
     hash_prefix = password_sha1_hash[:5]
-    
-    try:
-        response = requests.get(f"https://api.pwnedpasswords.com/range/{hash_prefix}")
-    except:
-        pass
-    else:
-        if response.status_code == 200:
-            response_content = response.text
 
-            for sha1_hash in response_content.split("\n"):
-                sha1_hash = sha1_hash.split(":")[0]
-                if sha1_hash == password_sha1_hash:
-                    return False, "[Error] Your password was found in a data leak."
+    url = f"https://api.pwnedpasswords.com/range/{hash_prefix}"
 
-    return True, None
+    while True:
+        try:
+            response = requests.get(
+                url,
+                headers = {'User-Agent': random.choice(USER_AGENTS)},
+                timeout = 5
+            )
+            response.raise_for_status()
 
+            if response.status_code == 200:
+                hashes = [line.split(':') for line in response.text.splitlines()]
+                for hash, _ in hashes:
+                    if hash == password_sha1_hash[5:]:
+                        return False         
+        except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
+            session = Proxy.get_requests_session()
+        else:
+            break
 
-def shorten_text(text: str, length: int) -> str:
-    """
-    Function to shorten the text and append "...".
-
-    :param text: The text to be shortened
-    :param length: The length of the text
-    """
-
-    if len(text) > length:
-        text = text[:length] + "..."
-    return text
+    return True
 
 
-file_locks = dict()
-
-
-class JSON:
-    "Class for loading / saving JavaScript Object Notation (= JSON)"
-
-    @staticmethod
-    def load(file_name: str, default: Union[dict, list] = dict()) -> Union[dict, list]:
-        """
-        Function to load a JSON file securely.
-
-        :param file_name: The JSON file you want to load
-        :param default: Returned if no data was found
-        """
-
-        if not os.path.isfile(file_name):
-            return default
-        
-        if file_name not in file_locks:
-            file_locks[file_name] = threading.Lock()
-
-        with file_locks[file_name]:
-            with open(file_name, "r") as file:
-                data = json.load(file)
-            return data
-    
-    @staticmethod
-    def dump(data: Union[dict, list], file_name: str) -> None:
-        """
-        Function to save a JSON file securely.
-        
-        :param data: The data to be stored should be either dict or list
-        :param file_name: The file to save to
-        """
-
-        file_directory = os.path.dirname(file_name)
-        if not os.path.isdir(file_directory):
-            raise FileNotFoundError("Directory '" + file_directory + "' does not exist.")
-        
-        if file_name not in file_locks:
-            file_locks[file_name] = threading.Lock()
-
-        with file_locks[file_name]:
-            with open(file_name, "w") as file:
-                json.dump(data, file)
-
-
-# Languages
-LANGUAGES = JSON.load(os.path.join(NEEDED_DIR_PATH, "languages.json"), list())
-LANGUAGE_CODES = [language["code"] for language in LANGUAGES]
-TRANSLATIONS_PATH = os.path.join(NEEDED_DIR_PATH, "translations.json")
-
+SYSTEM, MACHINE = get_system_architecture()
+CONSOLE = Console()
+CPU_COUNT = multiprocessing.cpu_count()
 
 class SecureDelete:
     "Class for secure deletion of files or folders"
@@ -259,51 +432,56 @@ class SecureDelete:
         return all_files, all_directories
 
     @staticmethod
-    def file(file_path: str, semaphore: Optional[threading.Semaphore] = None, quite: bool = False) -> None:
+    def file(file_path: str, quite: bool = False) -> None:
         """
-        Function to securely delete a file by replacing it first with random characters and then according to Gutmann patterns and DoD 5220.22-M patterns
+        Function to securely delete a file by replacing it first with random characters and
+        then according to Gutmann patterns and DoD 5220.22-M patterns
 
         :param file_path: The path to the file
-        :param semaphore: The Semaphore Object
         :param quite: If True nothing is written to the console
         """
+        if not os.path.isfile(file_path):
+            return
 
-        if semaphore is None:
-            semaphore = threading.Semaphore()
+        file_size = os.path.getsize(file_path)
+        file_size_times_two = file_size * 2
 
-        with semaphore:
-            if not os.path.isfile(file_path):
-                return
+        gutmann_patterns = [bytes([i % 256] * (file_size_times_two)) for i in range(35)]
+        dod_patterns = [
+            bytes([0x00] * file_size_times_two),
+            bytes([0xFF] * file_size_times_two),
+            bytes([0x00] * file_size_times_two)
+        ]
 
-            file_size = os.path.getsize(file_path)
-            for _ in range(5):
-                try:
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-
-                    with open(file_path, 'wb') as file:
-                        file.write(os.urandom(file_size))
-
+        for _ in range(10):
+            try:
+                if os.path.isfile(file_path):
                     os.remove(file_path)
 
-                    with open(file_path, 'ab') as file:
-                        file.seek(0, os.SEEK_END)
+                with open(file_path, 'wb') as file:
+                    file.write(os.urandom(file_size_times_two))
 
-                        # Gutmann Pattern
-                        for pattern in GUTMANN_PATTERNS:
-                            file.write(pattern)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
 
-                        # DoD 5220.22-M Pattern
-                        for pattern in DOD_PATTERNS:
-                            file.write(pattern)
-                except Exception as e:
-                    if not quite:
-                        CONSOLE.log(f"[red][Error] Error deleting the file '{file_path}': {e}")
+                with open(file_path, 'ab') as file:
+                    file.seek(0, os.SEEK_END)
+
+                    # Gutmann Pattern
+                    for pattern in gutmann_patterns:
+                        file.write(pattern)
+
+                    # DoD 5220.22-M Pattern
+                    for pattern in dod_patterns:
+                        file.write(pattern)
+            except Exception as e:
+                if not quite:
+                    CONSOLE.log(f"[red][Error] Error deleting the file '{file_path}': {e}")
 
             try:
                 os.remove(file_path)
-            except:
-                pass
+            except Exception as e:
+                CONSOLE.log(f"[red][Error] Error deleting the file '{file_path}': {e}")
     
     @staticmethod
     def directory(directory_path: str, quite: bool = False) -> None:
@@ -314,25 +492,25 @@ class SecureDelete:
         :param quite: If True nothing is written to the console
         """
 
-        files, directorys = SecureDelete.list_files_and_directories(directory_path)
-        
-        semaphore = threading.Semaphore(20)
+        files, directories = SecureDelete.list_files_and_directories(directory_path)
 
-        for file in files:
-            thread = threading.Thread(target=SecureDelete.file, args=(file, semaphore, quite))
-            thread.start()
-        
-        for directory in directorys:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=CPU_COUNT) as executor:
+            file_futures = {executor.submit(SecureDelete.file, file, quite): file for file in files}
+
+            concurrent.futures.wait(file_futures)
+
+            for directory in directories:
+                try:
+                    shutil.rmtree(directory)
+                except Exception as e:
+                    if not quite:
+                        CONSOLE.log(f"[red][Error] Error deleting directory '{directory}': {e}")
+
             try:
-                shutil.rmtree(directory)
-            except:
-                pass
-        
-        try:
-            shutil.rmtree(directory_path)
-        except:
-            pass
-
+                shutil.rmtree(directory_path)
+            except Exception as e:
+                if not quite:
+                    CONSOLE.log(f"[red][Error] Error deleting directory '{directory_path}': {e}")
 
 class Linux:
     "Collection of functions that have something to do with Linux"
@@ -343,10 +521,12 @@ class Linux:
 
         distro_id = distro.id()
 
-        package_manager = DISTRO_TO_PACKAGE_MANAGER.get(distro_id, {"installation_command": None, "update_command": None})
+        package_manager = DISTRO_TO_PACKAGE_MANAGER.get(
+            distro_id, {"installation_command": None, "update_command": None}
+        )
 
         installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
-        
+
         if None in [installation_command, update_command]:
             for package_manager in PACKAGE_MANAGERS:
                 try:
@@ -355,9 +535,9 @@ class Linux:
                     pass
                 else:
                     installation_command, update_command = package_manager["installation_command"], package_manager["update_command"]
-        
+
         return installation_command, update_command
-    
+
     @staticmethod
     def install_package(package_name: str) -> None:
         """
@@ -365,7 +545,7 @@ class Linux:
         
         :param package_name: Name of the Linux packet
         """
-        
+
         with CONSOLE.status("[green]Trying to get package manager..."):
             installation_command, update_command = Linux.get_package_manager()
         CONSOLE.log(f"[green]~ Package Manager is `{installation_command.split(' ')[0]}`")
@@ -376,258 +556,386 @@ class Linux:
                 update_process.wait()
             except Exception as e:
                 CONSOLE.log(f"[red]Error using update Command while installing linux package '{package_name}': '{e}'")
-            
+
             install_process = subprocess.Popen(f"sudo {installation_command} {package_name} -y", shell=True)
             install_process.wait()
-        
+
         else:
             CONSOLE.log("[red]No packet manager found for the current Linux system, you seem to use a distribution we don't know?")
             raise Exception("No package manager found!")
 
         return None
 
+SYSTEM, MACHINE = get_system_architecture()
+TOR_EXECUTABLE_PATH = {
+    "Windows": os.path.join(DATA_DIR_PATH, "tor/tor/tor.exe")
+}.get(SYSTEM, os.path.join(DATA_DIR_PATH, "tor/tor/tor"))
+PLUGGABLE_TRANSPORTS_PATH = os.path.join(DATA_DIR_PATH, "tor", "tor", "pluggable_transports")
+SNOWFLAKE_EXECUTABLE_PATH = os.path.join(
+    PLUGGABLE_TRANSPORTS_PATH, {"Windows": "snowflake-client.exe"}.get(SYSTEM, "snowflake-client")
+)
+WEBTUNNEL_EXECUTABLE_PATH = os.path.join(
+    PLUGGABLE_TRANSPORTS_PATH, {"Windows": "webtunnel-client.exe"}.get(SYSTEM, "webtunnel-client")
+)
+LYREBIRD_EXECUTABLE_PATH = os.path.join(
+    PLUGGABLE_TRANSPORTS_PATH, {"Windows": "lyrebird.exe"}.get(SYSTEM, "lyrebird")
+)
+CONJURE_EXECUTABLE_PATH = os.path.join(
+    PLUGGABLE_TRANSPORTS_PATH, {"Windows": "conjure-client.exe"}.get(SYSTEM, "lyrebird")
+)
+TOR_DATA_DIR2_PATH = os.path.join(DATA_DIR_PATH, "tor", "data2")
 
-class GnuPG:
-    "Collection of functions that have something to do with GNUPG"
+class Bridge:
+    "Includes all functions that have something to do with Tor bridges"
 
     @staticmethod
-    def search_key_name(search: str) -> Optional[str]:
+    def _get_type(bridge: str) -> str:
         """
-        Finds out the KEY Name based on a search term
+        Returns the type of a given bridge
         
-        :param search: Search term
+        :param bridge: A Tor bridge
+        """
+
+        for bridge_type in ["obfs4", "webtunnel", "snowflake", "meek_lite"]:
+            if bridge.startswith(bridge_type):
+                return bridge_type
+        return "vanilla"
+
+    @staticmethod
+    def _is_socket_bridge_online(bridge_address: str, bridge_port: int, timeout: int = 3) -> bool:
+        """
+        Request a bridge with socks to check that it is online
+
+        :param bridge_address: The bridges ipv4 or ipv6 or domain
+        :param bridge_port: The port of a bridge
+        :param timeout: Time in seconds after which a bridge is no longer considered online if it has not responded
         """
 
         try:
-            gpg = gnupg.GPG()
-        except RuntimeError as e:
-            if os.path.isfile(GNUPG_PATH):
-                gpg = gnupg.GPG(binary = GNUPG_PATH)
-            else:
-                return None
-
-        search_result = gpg.search_keys(search, keyserver=KEYSERVER_URLS[0])
-
-        if search_result:
-            key = search_result[0]
-            key_name = key['keyid']
-
-            return key_name
-
-        raise Exception("[Error] No keyname found for The Onion Router, the keyname is needed to verify the download file, Download Canceled.")
-    
-    @staticmethod
-    def load_public_keys(key_name: str) -> Optional[gnupg.GPG]:
-        """
-        Creates a PGP instance, and downloads Public Keys
-        
-        :param key_name: The Key Name
-        """
-
-        try:
-            gpg = gnupg.GPG()
+            with socket.create_connection((bridge_address, bridge_port), timeout=timeout):
+                return True
         except:
-            if os.path.isfile(GNUPG_PATH):
-                gpg = gnupg.GPG(binary=GNUPG_PATH)
-            else:
-                return None
+            return False
 
-        with CONSOLE.status("[bold green]Loading the Public Keys for The Onion Router..."):
-            for keyserver_url in KEYSERVER_URLS:
-                try:
-                    gpg.recv_keys(keyserver_url, key_name)
-                except TimeoutError:
-                    CONSOLE.log(f"[red]Failed to download the public key from the KeyServer `{keyserver_url}`")
+    @staticmethod
+    def _is_webtunnel_bridge_online(webtunnel_url: str, timeout: int = 3) -> bool:
+        """
+        Requests a WebTunnel to check if it is online
+
+        :param webtunnel_url: The url to the WebTunnel
+        :param timeout: Time in seconds after which a bridge is no longer considered online if it has not responded
+        """
+
+        try:
+            requests.get(webtunnel_url, timeout=timeout, headers={'User-Agent': random.choice(USER_AGENTS)})
+            return True
+        except:
+            return False
+
+    @staticmethod
+    def download(bridge_type, session: requests.Session):
+        """
+        Downloads a bridge file from GitHub
+
+        :param bridge_type: Type of bridge
+        :param session: Session configured with Socks Proxy Ports
+        """
+
+        download_urls = BRIDGE_DOWNLOAD_URLS[bridge_type]
+        bridge_path = os.path.join(DATA_DIR_PATH, bridge_type + ".json")
+
+        file_path = download_file(
+            download_urls["github"], TEMP_DIR_PATH,
+            bridge_type.title() + " Bridges", bridge_type + ".txt", session
+        )
+        if file_path is None:
+            file_path = download_file(
+                download_urls["backup"], TEMP_DIR_PATH,
+                bridge_type.title() + " Bridges", bridge_type + ".txt", session
+            )
+
+        if not os.path.isfile(file_path):
+            CONSOLE.log("[red][Error] Error when downloading bridges, use of default bridges")
+        else:
+            with open(file_path, "r", encoding = "utf-8") as readable_file:
+                unprocessed_bridges = readable_file.read()
+
+            processed_bridges = [bridge.strip() for bridge in unprocessed_bridges.split("\n") if bridge.strip()]
+
+            if {"vanilla": 800, "obfs4": 5000}.get(bridge_type, 20) >= len(processed_bridges):
+                CONSOLE.log("[red][Error] Error when validating the bridges, bridges were either not downloaded correctly or the bridge page was compromised, use of default bridges")
+            else:
+                with open(bridge_path, "w", encoding = "utf-8") as writeable_file:
+                    json.dump(processed_bridges, writeable_file)
+
+    @staticmethod
+    def select_random(all_bridges: list, quantity: int = 3) -> list:
+        """
+        Randomly selects bridges and asks them to check if they are online
+
+        :param all_bridges: All existing bridges in one list
+        :param quantity: How many bridges should be selected
+        """
+
+        if len(all_bridges) <= quantity:
+            return all_bridges
+
+        bridge_types = {}
+        for bridge in all_bridges:
+            bridge_type = Bridge._get_type(bridge)
+
+            if bridge_type not in bridge_types:
+                bridge_types[bridge_type] = []
+
+            bridge_types[bridge_type].append(bridge)
+
+        selected_bridges = []
+        checked_bridges = []
+
+        while len(selected_bridges) != quantity:
+            if len(bridge_types) > 1:
+                random_type = secrets.choice(list(bridge_types.keys()))
+            else:
+                random_type = next(iter(bridge_types))
+
+            while True:
+                if len(bridge_types[random_type]) > 1:
+                    random_bridge = secrets.choice(bridge_types[random_type])
+
+                    number_already_checked = 0
+                    for bridge in bridge_types[random_type]:
+                        if bridge in checked_bridges:
+                            number_already_checked += 1
+
+                    if number_already_checked >= len(bridge_types[random_type]):
+                        break
+
+                    while random_bridge in checked_bridges:
+                        random_bridge = secrets.choice(bridge_types[random_type])
                 else:
-                    CONSOLE.log(f"[green]Loaded Key from `{keyserver_url}`")
+                    random_bridge = next(iter(bridge_types[random_type]))
 
-        return gpg
+                    if random_bridge in checked_bridges:
+                        break
 
+                found_bridge = False
 
-class Tor:
-    "Collection of functions that have something to do with the Tor network"
+                if random_type in ["vanilla", "obfs4"]:
+                    processed_bridge = random_bridge.replace("obfs4 ", "")
+                    bridge_address = processed_bridge.split(":")[0]
+                    bridge_port = processed_bridge.split(":")[1].split(" ")[0]
 
-    @staticmethod
-    def get_ports(as_hidden_service = False) -> Tuple[int, int]:
-        """
-        Function for getting control and socks port
-        
-        :param as_hidden_service: If True, other ports are used
-        """
+                    if Bridge._is_socket_bridge_online(bridge_address, int(bridge_port)):
+                        selected_bridges.append(random_bridge)
+                        found_bridge = True
+                elif random_type == "webtunnel":
+                    bridge_url = random_bridge.split("url=")[1].split(" ")[0]
+                    if Bridge._is_webtunnel_bridge_online(bridge_url):
+                        selected_bridges.append(random_bridge)
+                        found_bridge = True
+                else:
+                    selected_bridges.append(random_bridge)
+                    found_bridge = True                
 
-        control_port, socks_port, random_range = {True: (5010, 5020, 5000)}.get(as_hidden_service, (9010, 9020, 9000))
+                checked_bridges.append(random_bridge)
 
-        def is_port_in_use(port):
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                return s.connect_ex(('127.0.0.1', port)) == 0
-            
-        def find_avaiable_port(without_port = None):
-            while True:
-                random_port = secrets.randbelow(random_range) + 1000
-                if random_port == without_port:
-                    continue
-                if not is_port_in_use(random_port):
-                    return random_port
-        
-        if is_port_in_use(control_port):
-            control_port = find_avaiable_port(socks_port)
-        if is_port_in_use(socks_port):
-            socks_port = find_avaiable_port(control_port)
-        
-        return control_port, socks_port
-
-    @staticmethod
-    def download_bridges() -> None:
-        "Downloads Tor bridges obsf4, snowflake and webtunnel"
-
-        if not os.path.isdir(TEMP_DIR_PATH):
-            os.mkdir(TEMP_DIR_PATH)
-        
-        for bridge_type, download_urls in DOWNLOAD_BRIDGE_URLS.items():
-            if bridge_type == "snowflake":
-                index = 0
-                for ip_version in IP_VERSIONS:
-                    file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ip_version + ".rar")
-
-                    is_successful = download_file(download_urls["github"][index], file_path, bridge_type.title() + " " + ip_version.title())
-                    if not is_successful:
-                        download_file(download_urls["backup"][index], file_path, bridge_type.title() + " " + ip_version.title() + " Backup")
-
-                    index = 1
-            else:
-                file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ".txt")
-
-                is_successful = download_file(download_urls["github"], file_path, bridge_type.title())
-                if not is_successful:
-                    download_file(download_urls["backup"], file_path, bridge_type.title() + " Backup")
-    
-    @staticmethod
-    def process_bridges() -> None:
-        "Processes and validates the downloaded bridges"
-
-        if not os.path.isdir(NEEDED_DIR_PATH):
-            os.mkdir(NEEDED_DIR_PATH)
-
-        for bridge_type, _ in DOWNLOAD_BRIDGE_URLS.items():
-            save_path = os.path.join(NEEDED_DIR_PATH, bridge_type + ".json")
-            
-            if bridge_type == "snowflake":
-                snowflake_ips = list()
-                for ip_version in IP_VERSIONS:
-                    file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ip_version + ".rar")
-
-                    if not os.path.isfile(file_path):
-                        continue
-                    
-                    try:
-                        with rarfile.RarFile(file_path) as rf:
-                            file_in_rar = rf.namelist()[0]
-
-                            with rf.open(file_in_rar) as readable_file:
-                                ips = readable_file.read().decode('utf-8')
-                    except:
-                        continue
-
-                    _ips = list()
-                    for ip in ips.split("\n"):
-                        ip = ip.strip()
-                        if not ip == "":
-                            _ips.append(ip)
-                    
-                    if {"ipv4": 1610000}.get(ip_version, 1190000) >= len(_ips):
-                        continue
-
-                    snowflake_ips.extend(_ips)
-                
-                if len(snowflake_ips) != 0:
-                    with open(save_path, "w") as writeable_file:
-                        json.dump(snowflake_ips, writeable_file)
-            else:
-                file_path = os.path.join(TEMP_DIR_PATH, bridge_type + ".txt")
-
-                if os.path.isfile(file_path):
-                    with open(file_path, "r") as readable_file:
-                        ips = readable_file.read()
-
-                    _ips = list()
-                    for ip in ips.split("\n"):
-                        ip = ip.strip()
-                        if not ip == "":
-                            _ips.append(ip)
-
-                    if {"obfs4": 5000}.get(bridge_type, 20) >= len(_ips):
-                        continue
-
-                    with open(save_path, "w") as writeable_file:
-                        json.dump(_ips, writeable_file)
-    
-    @staticmethod
-    def get_bridge_configuration() -> Tuple[bool, str]:
-        "Function that returns the bridge configuration"
-
-        if os.path.isfile(BRIDGES_CONF_PATH):
-            with open(BRIDGES_CONF_PATH, "r") as readable_file:
-                bridges_configuration = readable_file.read().strip()
-            
-            try:
-                bridge_conf = bridges_configuration.split("-")
-                use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
-                return use_build_in, type_of_bridge
-            except:
-                pass
-        return DEFAULT_BRIDGES_CONF
-
-    @staticmethod
-    def get_bridges() -> Union[list, str]:
-        "Function that returns bridges"
-
-        use_build_in, type_of_bridge = Tor.get_bridge_configuration()
-        bridges_needed = {"meek_lite": 1, "webtunnel": 1}.get(type_of_bridge, 3)
-        buildin_list = {"snowflake": SNOWFLAKE_BUILDIN_BRIDGES, "webtunnel": WEBTUNNEL_BUILDIN_BRIDGES, "meek_lite": MEEKLITE_BUILDIN_BRIDGES}.get(type_of_bridge, OBFS4_BUILDIN_BRIDGES)
-
-        bridges = list()
-        
-        while True:
-            if len(buildin_list) == 1:
-                bridges.append(buildin_list[0])
-                break
-            else:
-                new_bridge = secrets.choice(buildin_list)
-                if not new_bridge in bridges:
-                    bridges.append(new_bridge)
-
-            if len(bridges) >= bridges_needed:
-                break
-
-
-        if not use_build_in and not type_of_bridge == "meek_lite":
-            file_path = os.path.join(NEEDED_DIR_PATH, type_of_bridge + ".json")
-            file_bridges = JSON.load(file_path, [])
-            
-            bridges = list()
-
-            while True:
-                new_bridge = secrets.choice(file_bridges)
-                if type_of_bridge == "snowflake":
-                    new_bridge = "snowflake " + new_bridge
-
-                if not new_bridge in bridges:
-                    bridges.append(new_bridge)
-
-                if len(bridges) >= bridges_needed:
+                if found_bridge:
                     break
+
+            if len(checked_bridges) >= len(all_bridges):
+                break
         
-        if len(bridges) == 1:
-            bridges = bridges[0]
+        while (len(selected_bridges) < 3 and len(all_bridges) > 1)\
+            or (len(selected_bridges) == 0 and len(all_bridges) == 1):
+            random_bridge = secrets.choice(all_bridges)
+            if not random_bridge in selected_bridges:
+                selected_bridges.append(random_bridge)
+
+        return selected_bridges
+
+    @staticmethod
+    def choose_buildin(bridge_type: str) -> list:
+        """
+        Selects Random Buildin bridges
+
+        :param bridge_type: Type of bridge
+        """
+
+        with CONSOLE.status("[green]Bridges are selected (This may take some time)..."):
+            if not bridge_type == "random":
+                default_bridges = DEFAULT_BRIDGES[bridge_type]
+                bridges = Bridge.select_random(default_bridges, 4)
+            else:
+                default_bridges = []
+                for _, specific_bridges in DEFAULT_BRIDGES.items():
+                    default_bridges.extend(specific_bridges)
+                bridges = Bridge.select_random(default_bridges, 6)
+
+        return bridges
+    
+    @staticmethod
+    def choose_bridges(use_default_bridges: bool, bridge_type: str) -> list:
+        """
+        Choose a list of bridges based on specified criteria.
+
+        :param use_default_bridges: Flag indicating whether to use default bridges or not.
+        :param bridge_type: Type of bridges to choose.
+        """
+
+        if use_default_bridges:
+            return Bridge.choose_buildin(bridge_type)
+        
+        with CONSOLE.status("All bridges are loaded..."):
+            if bridge_type == "random":
+                all_bridges = DEFAULT_BRIDGES["snowflake"] + DEFAULT_BRIDGES["meek_lite"]
+                for file in BRIDGE_FILES:
+                    try:
+                        with open(file, "r", encoding="utf-8") as readable_file:
+                            content = json.load(readable_file)
+                        all_bridges.extend(content)
+                    except Exception as e:
+                        bridge_type = file.replace(DATA_DIR_PATH, "").replace(".json", "")
+                        all_bridges.extend(DEFAULT_BRIDGES[bridge_type])
+                        CONSOLE.log(f"[red][Error] Error loading the bridge file: '{file}': '{e}'")
+            else:
+                try:
+                    bridge_file = os.path.join(DATA_DIR_PATH, bridge_type + ".json")
+                    with open(bridge_file, "r", encoding="utf-8") as readable_file:
+                        content = json.load(readable_file)
+                    all_bridges = content
+                except Exception as e:
+                    all_bridges = DEFAULT_BRIDGES[bridge_type]
+                    CONSOLE.log(f"[red][Error] Error loading the bridge file: '{bridge_file}': '{e}'")
+
+        with CONSOLE.status("[green]Bridges are selected (This may take some time)..."):
+            bridges = Bridge.select_random(all_bridges, 6)
         
         return bridges
 
-    @staticmethod
-    def get_download_link() -> Tuple[Optional[str], Optional[str]]:
-        "Request https://www.torproject.org to get the latest download links"
+class BridgeDB:
+    "All functions that have something to do with requesting bridges from BridgeDB"
 
-        response = requests.get("https://www.torproject.org/download/")
-        response.raise_for_status()
+    @staticmethod
+    def get_captcha_challenge(bridge_type: str, session: Optional[requests.Session] = None)\
+        -> Tuple[Optional[bytes], Optional[str]]:
+        """
+        Asks for a captcha from bridges.torproject.org to get bridges
+        
+        :param bridge_type: The type of bridge, can be "vanilla", "obfs4" or "webtunnel"
+        :param session: a requests.Session Object (Optional)
+        """
+
+        if session is None:
+            session = Proxy.get_requests_session()
+
+        captcha_image_bytes, captcha_challenge_value = None, None
+
+        try:
+            response = requests.get(
+                "https://bridges.torproject.org/bridges/?transport="\
+                + {"vanilla": "0"}.get(bridge_type, bridge_type),
+                headers = {'User-Agent': random.choice(USER_AGENTS)},
+                timeout = 5
+            )
+            response.raise_for_status()
+
+            if response.status_code == 200:
+                html_content = response.text
+                soup = BeautifulSoup(html_content, 'html.parser')
+
+                captcha_image_object = soup.select_one('#bridgedb-captcha img')
+                if captcha_image_object:
+                    captcha_image_src = captcha_image_object.get('src')
+
+                    captcha_image_base64 = captcha_image_src.split("data:image/jpeg;base64,")[1]
+
+                    captcha_image_bytes = b64decode(captcha_image_base64)
+
+                captcha_form_object = soup.select_one('#bridgedb-captcha-container form')
+                if captcha_form_object:
+                    captcha_challenge_field_object = captcha_form_object.select_one('input[name="captcha_challenge_field"]')
+
+                    if captcha_challenge_field_object:
+                        captcha_challenge_value = captcha_challenge_field_object.get('value')
+        except Exception as e:
+            print(f"Error getting captcha challenge: {str(e)}")
+
+        return captcha_image_bytes, captcha_challenge_value
+
+    @staticmethod
+    def get_bridges(bridge_type: str, captcha_input: str,
+                    captcha_challenge_value: str, session: Optional[requests.Session])\
+                        -> Optional[list]:
+        """
+        Gets the bridges after the captcha has been solved by the user
+        
+        :param bridge_type: The type of bridge, can be "vanilla", "obfs4" or "webtunnel"
+        :param captcha_input: User input of the characters in the captcha
+        :param captcha_challenge_value: Captcha Challenge Value from get_captcha_challenge
+        :param session: a requests.Session Object (Optional)
+        """
+
+        if session is None:
+            session = Proxy.get_requests_session()
+
+        bridges = None
+
+        try:
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': random.choice(USER_AGENTS)
+            }
+
+            response = requests.post(
+                "https://bridges.torproject.org/bridges/?transport="\
+                + {"vanilla": "0"}.get(bridge_type, bridge_type), headers = headers,
+                data = {
+                    "captcha_response_field": captcha_input, 
+                    "captcha_challenge_field": captcha_challenge_value
+                },
+                timeout = 5
+            )
+            response.raise_for_status()
+
+            if response.status_code == 200:
+                html_content = response.text
+                soup = BeautifulSoup(html_content, 'html.parser')
+
+                bridge_lines_object = soup.select_one('#bridgelines')
+                if bridge_lines_object:
+                    bridge_lines = bridge_lines_object.get_text()
+                    bridges = [bridge.strip() for bridge in bridge_lines.strip().split('\n')]
+        except Exception as e:
+            print(f"Error getting bridges: {str(e)}")
+
+        return bridges
+
+
+HIDDEN_SERVICE_CONF_FILE = os.path.join(DATA_DIR_PATH, "hidden-service.conf")
+
+class Tor:
+    "All functions that have something to do with the Tor network"
+
+    @staticmethod
+    def get_download_link(session: Optional[requests.Session] = None
+        ) -> Tuple[Optional[str], Optional[str]]:
+        "Request http://www.torproject.org to get the latest download links"
+
+        if session is None:
+            session = Proxy.get_requests_session()
+        
+        while True:
+            try:
+                response = session.get(
+                    "http://www.torproject.org/download/tor/",
+                    headers={'User-Agent': random.choice(USER_AGENTS)},
+                    timeout = 5
+                )
+                response.raise_for_status()
+            except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
+                session = Proxy.get_requests_session()
+            else:
+                break
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -640,197 +948,237 @@ class Tor:
             href = anchor.get('href')
 
             if href:
-                if "/dist/torbrowser/" in href:
-                    if SYSTEM.lower() in href:
+                if "archive.torproject.org/tor-package-archive/torbrowser" in href:
+                    if SYSTEM.lower() in href and "tor-expert-bundle" in href and MACHINE.lower() in href:
                         if href.endswith(".asc"):
-                            signature_url = "https://www.torproject.org" + href
+                            signature_url = href
                         else:
-                            download_url = "https://www.torproject.org" + href
-        
+                            download_url = href
+
+                        if not None in [signature_url, download_url]:
+                            break
+
         return (download_url, signature_url)
 
     @staticmethod
-    def kill_tor_daemon(control_port: int) -> None:
-        """
-        Stops all running Tor Daemon processes.
-        
-        :param control_port: Port to Tor Controller
-        """
-
-        try:
-            with control.Controller.from_port(port=control_port) as controller:
-                controller.authenticate()
-                controller.signal(stem.Signal.SHUTDOWN)
-        except:
-            pass
-        else:
-            return
+    def terminate_tor_processes():
+        "Function to try to stop a broken Tor service"
 
         try:
             for process in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
-                if "tor" in process.cmdline():
+                if "tor" == process.name().strip():
                     process.terminate()
-            CONSOLE.log("[green]All Tor Daemon processes stopped.")
-        except psutil.AccessDenied as e:
-            CONSOLE.log(f"[red]Privileg Error: AccessDenied while stopping Tor: {e}")
         except Exception as e:
-            CONSOLE.log(f"[red]Error stopping Tor Daemon: {e}")
-    
+            CONSOLE.print(f"[red][Error] Error when terminating Tor: `{e}`")
+
     @staticmethod
-    def at_exit_kill_tor(control_port: int, tor_process = None):
+    def launch_tor_with_config(control_port: int, socks_port: int, bridges: list,
+                               is_service: bool = False, control_password: Optional[str] = None,
+                               other_configuration: Optional[dict] = None
+                               ) -> Tuple[subprocess.Popen, str]:
         """
-        Kills the TOR process at the end
-        
-        :param control_port: Path to the Tor Controller
-        :param tor_process: The running Tor Process
+        Starts Tor with the given configurations and bridges
+
+        :param control_port: Tor control port to control the connection
+        :param socks_port: Tor Socks Port, sets the port for Socks Proxy connections via Tor
+        :param bridges: Bridges to conceal the connection to Tor from evil entities
+        :param is_service: If True, use of other data directory so that two Tor clients can run in parallel
+        :param control_password: Password, to control the control port (Optional)
+        :param other_configuration: Other configurations for the torrc file (Optional)
         """
 
-        if tor_process is None:
-            return
+        if control_password is None:
+            control_password = generate_random_string(16, with_punctuation=False)
         
-        with CONSOLE.status("[bold green]Try to terminate the Tor process..."):
+        tor_process = subprocess.Popen(
+            [TOR_EXECUTABLE_PATH, "--hash-password", control_password],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        hashed_password, _ = tor_process.communicate()
+        hashed_password = hashed_password.strip().decode()
+
+        temp_config_path = os.path.join(DATA_DIR_PATH, "torrc")
+
+        with open(temp_config_path, 'w+', encoding = 'utf-8') as temp_config:
+            temp_config.write(f"ControlPort {control_port}\n")
+            temp_config.write(f"HashedControlPassword {hashed_password}\n")
+            temp_config.write(f"SocksPort {socks_port}\n")
+
+            if is_service:
+                if not os.path.isdir(TOR_DATA_DIR2_PATH):
+                    os.mkdir(TOR_DATA_DIR2_PATH)
+                temp_config.write(f"DataDirectory {TOR_DATA_DIR2_PATH}\n")
+
+            if not len(bridges) == 0:
+                temp_config.write(f"UseBridges 1\nClientTransportPlugin obfs4 exec {LYREBIRD_EXECUTABLE_PATH}\nClientTransportPlugin snowflake exec {SNOWFLAKE_EXECUTABLE_PATH}\nClientTransportPlugin webtunnel exec {WEBTUNNEL_EXECUTABLE_PATH}\nClientTransportPlugin meek_lite exec {CONJURE_EXECUTABLE_PATH}")
+            for bridge in bridges:
+                temp_config.write(f"\nBridge {bridge}")
+
+            if not other_configuration is None:
+                if not other_configuration.get("hidden_service_dir") is None:
+                    temp_config.write(f"HiddenServiceDir {other_configuration.get('hidden_service_dir')}\n")
+                if not other_configuration.get("hidden_service_port") is None:
+                    temp_config.write(f"HiddenServicePort {other_configuration.get('hidden_service_port')}\n")
+
+        tor_process = subprocess.Popen(
+            [TOR_EXECUTABLE_PATH, "-f", temp_config_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            close_fds=True
+        )
+
+        warn_time = None
+
+        while True:
+            line = tor_process.stdout.readline().decode().strip()
+            if line:
+                print(line)
+                if "[notice] Bootstrapped 100% (done): Done" in line:
+                    break
+
+                if "Bootstrapped" in line:
+                    warn_time = None
+
+                if warn_time is None:
+                    if "[err]" in line or "[warn]" in line:
+                        warn_time = int(time.time())
+
+            if not warn_time is None:
+                if warn_time + 10 < int(time.time()):
+                    break
+        
+        if os.path.isfile(temp_config_path):
+            os.remove(temp_config_path)
+        
+        try:
+            with Controller.from_port(port=control_port) as controller:
+                controller.authenticate(password=control_password)
+
+                start_time = time.time()
+                while not controller.is_alive():
+                    if time.time() - start_time > 20:
+                        raise TimeoutError("Timeout!")
+                    time.sleep(1)
+        except Exception as e:
+            CONSOLE.print(f"[red][Error] Error when checking whether TOR has started correctly: `{e}`")
+            Tor.send_shutdown_signal(control_port, control_password)
+            time.sleep(1)
             tor_process.terminate()
-            Tor.kill_tor_daemon(control_port)
+            return None, None
+
+        return tor_process, control_password
 
     @staticmethod
-    def get_hidden_service_info() -> (Optional[str], int):
-        "Retrieves hidden service information from a configuration file."
-
-        service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
-
-        hidden_dir = service_setup_info.get("hidden_service_dir", None)
-        hidden_port = service_setup_info.get("hidden_service_port", 8080)
-        
-        return hidden_dir, hidden_port
-
-    @staticmethod
-    def start_tor_daemon(control_port: int, socks_port: int, as_service: bool = False) -> Optional[launch_tor_with_config]:
+    def send_shutdown_signal(control_port: int, control_password: str) -> None:
         """
-        Launches The Onion Router Daemom
-        
-        :param as_service: If True, a hidden service is started with
-        :param control_port: Port to the Tor Controller
-        :param socks_port: Port to Tor Socks
-        """
+        Sends the signal to terminate Tor
 
-        if Tor.is_tor_controller_alive(control_port):
-            Tor.kill_tor_daemon(control_port)
-
-        if not as_service:
-            bridges = Tor.get_bridges()
-
-            if isinstance(bridges, list):
-                bridge = secrets.choice(bridges)
-            else:
-                bridge = bridges
-
-            config = {
-                'SocksPort': str(socks_port),
-                'ControlPort': str(control_port),
-                'Bridge': bridge
-            }
-        else:
-            config = {
-                'SocksPort': str(socks_port),
-                'ControlPort': str(control_port)
-            }
-
-        start_service_criterias = [os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH), os.path.isfile(SERVICE_SETUP_CONF_PATH), as_service]
-
-        if any(start_service_criterias):
-            hidden_dir, hidden_port = Tor.get_hidden_service_info()
-            
-            if (not hidden_dir and os.path.isdir(DEFAULT_HIDDEN_SERVICE_DIR_PATH)) or as_service:
-                hidden_dir = DEFAULT_HIDDEN_SERVICE_DIR_PATH
-            
-            config['HiddenServiceDir'] = hidden_dir
-            config['HiddenServicePort'] = f'80 127.0.0.1:{hidden_port}'
-
-        try:
-            tor_process = launch_tor_with_config(
-                tor_cmd=TOR_PATH,
-                config=config,
-            )
-        except Exception as e:
-            CONSOLE.log(f"[red][Error] Error when starting Tor: '{e}'")
-            return None
-        
-        return tor_process
-    
-    @staticmethod
-    def is_tor_controller_alive(control_port: int) -> bool:
-        """
-        Function to check if the Controller Port is alive
-
-        :param control_port: Port to Tor Controller
+        :param control_port: Tor control port to control the connection
+        :param control_password: Password to authorize Tor
         """
 
         try:
-            with control.Controller.from_port(port=control_port) as controller:
-                controller.authenticate()
+            with Controller.from_port(port=control_port) as controller:
+                controller.authenticate(password=control_password)
 
-                if controller.is_alive():
-                    return True
-                else:
-                    CONSOLE.log("[red][Error] Tor is probably not installed.")
-        except (Exception) as socket_error:
-            CONSOLE.log(f"[red][Error] Error connecting to the Tor Control Port '{socket_error}'")
-        
-        return False
+                controller.signal(Signal.SHUTDOWN)
+        except:
+            Tor.terminate_tor_processes()
 
     @staticmethod
-    def is_tor_socks_alive(socks_port: int) -> bool:
+    def send_new_identity_signal(control_port: int, control_password: str) -> None:
         """
-        Function to check if the Socks Port is alive
+        Sends the signal to generate a new identity
 
-        :param socks_port: Path to Tor Socks
+        :param control_port: Tor control port to control the connection
+        :param control_password: Password to authorize Tor
         """
 
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
+            with Controller.from_port(port=control_port) as controller:
+                controller.authenticate(password=control_password)
 
-            sock.connect(("127.0.0.1", socks_port))
-        except Exception as e:
-            CONSOLE.log(f"[red][Error] Error while connecting to Socks Port: `{e}`")
-            return False
-        finally:
-            sock.close()
-        
-        return False
+                controller.signal(Signal.NEWNYM)
+        except:
+            pass
 
     @staticmethod
-    def get_request_session(control_port: int, socks_port: int) -> requests.session:
+    def get_requests_session(control_port: int, control_password: str,
+                             socks_port: int) -> requests.Session:
         """
-        Creates gate connection and returns requests.session
-        
-        :param control_port: Path to Tor Controller
-        :param socks_port: Path to Tor Socks
+        Returns a requests.session object with the gate socks set
+
+        :param control_port: Tor control port to control the connection
+        :param control_password: Password to authorize Tor
+        :param socks_port: Tor Socks Port, sets the port for Socks Proxy connections via Tor
         """
 
-        def new_tor_signal():
-            if secrets.choice([True, False, False, False, False, False, False, False]):
-                with control.Controller.from_port(port=control_port) as controller:
-                    controller.authenticate()
-                    controller.signal(stem.Signal.NEWNYM)
+        if secrets.choice([True] + [False] * 8):
+            Tor.send_new_identity_signal(control_port, control_password)
 
-        new_session = requests.session()
+        session = requests.Session()
 
-        try:
-            new_tor_signal()
-        except stem.SocketError:
-            Tor.start_tor_daemon(control_port, socks_port)
-            new_tor_signal()
-        except Exception as e:
-            CONSOLE.log(f"[red][Error] Request Error: '{e}'")
-
-        new_session.proxies = {
+        session.proxies = {
             'http': 'socks5h://127.0.0.1:' + str(socks_port),
             'https': 'socks5h://127.0.0.1:' + str(socks_port)
         }
 
-        return new_session
+        return session
 
+    @staticmethod
+    def get_ports(port_range: int = 5000) -> Tuple[int, int]:
+        """
+        Function for getting control and socks port
+        
+        :param port_range: In which range the ports should be
+        """
+
+        control_port, socks_port = port_range + 30, port_range + 31
+
+        def is_port_in_use(port):
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(2)
+                    return s.connect_ex(('127.0.0.1', port)) == 0
+            except:
+                return False
+
+        def find_avaiable_port(without_port = None):
+            while True:
+                random_port = secrets.randbelow(port_range) + 1000
+                if random_port == without_port:
+                    continue
+                if not is_port_in_use(random_port):
+                    return random_port
+
+        if is_port_in_use(control_port):
+            control_port = find_avaiable_port(socks_port)
+        if is_port_in_use(socks_port):
+            socks_port = find_avaiable_port(control_port)
+
+        return control_port, socks_port
+
+    @staticmethod
+    def get_hidden_service_config() -> dict:
+        "Loads the hidden service configuration"
+
+        hidden_service_conf = {
+            "hidden_service_directory": os.path.join(DATA_DIR_PATH, "hidden_service"),
+            "webservice_host": "localhost",
+            "webservice_port": 8080,
+            "without_ui": False
+        }
+
+        if os.path.isfile(HIDDEN_SERVICE_CONF_FILE):
+            try:
+                with open(HIDDEN_SERVICE_CONF_FILE, "r", encoding = "utf-8") as readable_file:
+                    loaded_configuration = json.load(readable_file)
+                hidden_service_conf.update(loaded_configuration)
+            except:
+                pass
+
+        return hidden_service_conf
 
 class FastHashing:
     "Implementation for fast hashing"
@@ -843,7 +1191,7 @@ class FastHashing:
 
         self.salt = salt
         self.without_salt = without_salt
-    
+
     def hash(self, plain_text: str, hash_length: int = 8) -> str:
         """
         Function to hash a plaintext
@@ -857,33 +1205,34 @@ class FastHashing:
             if salt is None:
                 salt = secrets.token_hex(hash_length)
             plain_text = salt + plain_text
-        
+
         hash_object = hashlib.sha256(plain_text.encode())
         hex_dig = hash_object.hexdigest()
-        
+
         if not self.without_salt:
             hex_dig += "//" + salt
         return hex_dig
-    
-    def compare(self, plain_text: str, hash: str) -> bool:
+
+    def compare(self, plain_text: str, hashed_value: str) -> bool:
         """
         Compares a plaintext with a hashed value
 
         :param plain_text: The text that was hashed
-        :param hash: The hashed value
+        :param hashed_value: The hashed value
         """
-        
+
         salt = None
         if not self.without_salt:
             salt = self.salt
-            if "//" in hash:
-                hash, salt = hash.split("//")
-        
-        hash_length = len(hash)
+            if "//" in hashed_value:
+                hashed_value, salt = hashed_value.split("//")
 
-        comparison_hash = FastHashing(salt=salt, without_salt = self.without_salt).hash(plain_text, hash_length = hash_length).split("//")[0]
+        hash_length = len(hashed_value)
 
-        return comparison_hash == hash
+        comparison_hash = FastHashing(salt=salt, without_salt = self.without_salt)\
+            .hash(plain_text, hash_length = hash_length).split("//")[0]
+
+        return comparison_hash == hashed_value
 
 
 class Hashing:
@@ -932,25 +1281,25 @@ class Hashing:
         hashed_data = kdf.derive(plain_text)
 
         if not self.without_salt:
-            hash = b64encode(hashed_data).decode('utf-8') + "//" + salt.hex()
+            hashed_value = b64encode(hashed_data).decode('utf-8') + "//" + salt.hex()
         else:
-            hash = b64encode(hashed_data).decode('utf-8')
+            hashed_value = b64encode(hashed_data).decode('utf-8')
 
-        return hash
+        return hashed_value
 
-    def compare(self, plain_text: str, hash: str) -> bool:
+    def compare(self, plain_text: str, hashed_value: str) -> bool:
         """
         Compares a plaintext with a hashed value
 
         :param plain_text: The text that was hashed
-        :param hash: The hashed value
+        :param hashed_value: The hashed value
         """
-        
+
         if not self.without_salt:
             salt = self.salt
-            if "//" in hash:
-                hash, salt = hash.split("//")
-            
+            if "//" in hashed_value:
+                hashed_value, salt = hashed_value.split("//")
+
             if salt is None:
                 raise ValueError("Salt cannot be None if there is no salt in hash")
 
@@ -958,11 +1307,12 @@ class Hashing:
         else:
             salt = None
 
-        hash_length = len(b64decode(hash))
+        hash_length = len(b64decode(hashed_value))
 
-        comparison_hash = Hashing(salt=salt, without_salt = self.without_salt).hash(plain_text, hash_length = hash_length).split("//")[0]
+        comparison_hash = Hashing(salt=salt, without_salt = self.without_salt)\
+            .hash(plain_text, hash_length = hash_length).split("//")[0]
 
-        return comparison_hash == hash
+        return comparison_hash == hashed_value
 
 
 class SymmetricEncryption:
@@ -1045,16 +1395,20 @@ class AsymmetricEncryption:
         :param public_key: The public key to encrypt a message / to verify a signature
         :param private_key: The private key to decrypt a message / to create a signature
         """
-        
+
         self.public_key, self.private_key = public_key, private_key
 
         if not public_key is None:
-            self.publ_key = serialization.load_der_public_key(public_key.encode('latin-1'), backend=default_backend())
+            self.publ_key = serialization.load_der_public_key(
+                b64decode(public_key.encode("utf-8")), backend=default_backend()
+            )
         else:
             self.publ_key = None
 
         if not private_key is None:
-            self.priv_key = serialization.load_der_private_key(private_key.encode('latin-1'), password=None, backend=default_backend())
+            self.priv_key = serialization.load_der_private_key(
+                b64decode(private_key.encode("utf-8")), password=None, backend=default_backend()
+            )
         else:
             self.priv_key = None
 
@@ -1069,17 +1423,17 @@ class AsymmetricEncryption:
             key_size=key_size,
             backend=default_backend()
         )
-        self.private_key = self.priv_key.private_bytes(
+        self.private_key = b64encode(self.priv_key.private_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption()
-        ).decode('latin-1')
-        
+        )).decode("utf-8")
+
         self.publ_key = self.priv_key.public_key()
-        self.public_key = self.publ_key.public_bytes(
+        self.public_key = b64encode(self.publ_key.public_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
-        ).decode('latin-1')
+        )).decode("utf-8")
 
         return self
 
@@ -1195,132 +1549,49 @@ class AsymmetricEncryption:
             )
 
             return True
-        except Exception:
+        except:
             return False
 
+def load_persistent_storage_file(file_name: str, persistent_storage_encryptor: SymmetricEncryption) -> Union[dict, list]:
+    """
+    Load encrypted persistent data from a file.
 
-class ArgumentValidator:
-    "Contains functions for validating arguments and credentials"
+    Parameters:
+    :param: file_name: The name of the file containing the encrypted data.
+    :param persistent_storage_encryptor: The encryption object to decrypt the data.
+    """
 
-    @staticmethod
-    def username(username: Optional[str] = None, is_register: bool = True) -> Tuple[bool, Optional[dict]]:
-        """
-        Validates a username if it was specified, if its length is between 4 - 15, if it contains only the characters A-Z, a-z, 0-9, _ and if it already exists
+    with open(file_name, "r", encoding = "utf-8") as readable_file:
+        encrypted_persistent_data = readable_file.read()
 
-        :param username: The username (Optional)
-        :param is_register: If True, it is assumed that the given username should not exist yet.
-        """
+    persistent_data = persistent_storage_encryptor.decrypt(encrypted_persistent_data)
+    loaded_persistent_data = json.loads(persistent_data)
 
-        if username is None:
-            return False, {"status_code": 400, "error": "Parameter 'username' is None."}
-        if len(username) < 4 or len(username) > 15:
-            return False, {"status_code": 400, "error": "Parameter 'username' is to " + ("short" if len(username) < 4 else "long") + "."}
-        if re.search(r"[^\w]", username):
-            return False, {"status_code": 400, "error": "Parameter 'username' contains characters that do not belong in a username."}
-        
-        users = JSON.load(USERS_HIDDEN_SERVICE_PATH)
+    return loaded_persistent_data
 
-        for hashed_username, _ in users:
-            comparison = FastHashing().compare(username, hashed_username)
+def dump_persistent_storage_data(file_name: str, persistent_data: Union[dict, list], persistent_storage_encryptor: SymmetricEncryption) -> None:
+    """
+    Dump persistent data into an encrypted file.
 
-            if comparison and is_register:
-                return False, {"status_code": 400, "error": "The given username in Parameter 'username' exist."}
-            
-        if not is_register:
-            return False, {"status_code": 400, "error": "The given username in Parameter 'username' does not exist."}
-        
-        return True, None
-    
-    @staticmethod
-    def hashed_password(hashed_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
-        """
-        Validates a password hash, whether it was specified, whether it has the correct length and whether it contains hash characters
+    Parameters:
+    :param file_name: The name of the file to store the encrypted data.
+    :param persistent_data: The persistent data to be stored.
+    :param persistent_storage_encryptor: The encryption object to encrypt the data.
+    """
 
-        :param hashed_password: The hashed password (Optional)
-        """
+    dumped_persistent_data = json.dumps(persistent_data)
+    encrypted_persistent_data = persistent_storage_encryptor.encrypt(dumped_persistent_data)
 
-        if hashed_password is None:
-            return False, {"status_code": 400, "error": "Parameter 'hashed_password' is None."}
-        # hashed_password = Hashing().hash(password, hash_length=16)
-        if len(hashed_password) != 90:
-            return False, {"status_code": 400, "error": "Parameter 'hashed_password' has the wrong length."}
-        if not re.match(r"^[\w+/]+=+\/\/[0-9a-fA-F]+$", hashed_password):
-            return False, {"status_code": 400, "error": "Parameter 'hashed_password' contains characters that do not belong in a hash."}
-        
-        return True, None
+    with open(file_name, "w", encoding = "utf-8") as writeable_file:
+        writeable_file.write(encrypted_persistent_data)
 
-    @staticmethod
-    def hashed_chat_password(hashed_chat_password: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
-        """
-        Validates a chat password hash, whether it has the correct length and whether it contains hash characters
-
-        :param hashed_chat_password: The hashed password (Optional)
-        """
-
-        # hashed_chat_password = Hashing().hash(chat_password, hash_length=16)
-        if len(hashed_chat_password) != 90:
-            return False, {"status_code": 400, "error": "Parameter 'hashed_chat_password' has the wrong length."}
-        if not re.match(r"^[\w+/]+=+\/\/[0-9a-fA-F]+$", hashed_chat_password):
-            return False, {"status_code": 400, "error": "Parameter 'hashed_chat_password' contains characters that do not belong in a hash."}
-        
-        return True, None
-    
-    @staticmethod
-    def public_key(public_key: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
-        """
-        Validates a public key based on whether it was specified, its length, and whether it works
-
-        :param public_key: The public key (Optional)
-        """
-
-        if public_key is None:
-            return False, {"status_code": 400, "error": "Parameter 'public_key' is None."}
-        if len(public_key) < 294 or len(public_key) > 550: # 2048 - 4096
-            return False, {"status_code": 400, "error": "Parameter 'public_key' is to " + ("short" if len(public_key) < 294 else "long") + "."}
-        try:
-            serialization.load_der_public_key(public_key.encode('latin-1'), backend=default_backend())
-        except:
-            return False, {"status_code": 400, "error": "The public key given in the Parameter 'public_key' could not be loaded."}
-        
-        return True, None
-
-    @staticmethod
-    def crypted_private_key(crypted_private_key: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
-        """
-        Validates a crypted_private_key if given, checks if the length is correct
-
-        :param crypted_private_key: The crypted private key (Optional)
-        """
-
-        if crypted_private_key is None:
-            return True, None
-        if len(crypted_private_key) < 2476 or len(crypted_private_key) > 4780: # 2048 - 4096
-            return False, {"status_code": 400, "error": "Parameter 'crypted_private_key' is to " + ("short" if len(crypted_private_key) < 2476 else "long") + "."}
-        return True, None
-    
-    @staticmethod
-    def two_factor_token(two_factor_token: Optional[str] = None) -> Tuple[bool, Optional[dict]]:
-        """
-        Validates a two_factor_token if it was specified, if it is 100 characters long and if it is hexadecimal.
-
-        :param two_factor_token: The 2 factor token (Optional)
-        """
-
-        if two_factor_token is None:
-            return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is None."}
-        if len(two_factor_token) != 100:
-            return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is to " + ("short" if len(two_factor_token) < 100 else "long") + "."}
-        if re.match(r"^[0-9A-Fa-f]+$", two_factor_token):
-            return False, {"status_code": 400, "error": "Parameter 'two_factor_token' is not hexadecimal."}
-        return True, None
-
+    return
 
 class SilentUndefined(Undefined):
     "Class to not get an error when specifying a non-existent argument"
 
     def _fail_with_undefined_error(self, *args, **kwargs):
         return None
-
 
 class WebPage:
     "Class with useful tools for WebPages"
@@ -1335,7 +1606,7 @@ class WebPage:
         """
 
         tag_pattern = rf'<{tag}\b[^>]*>(.*?)<\/{tag}>'
-        
+
         def minimize_tag_content(match: re.Match):
             content = match.group(1)
             content = re.sub(r'\s+', ' ', content)
@@ -1357,85 +1628,38 @@ class WebPage:
         html = WebPage._minimize_tag_content(html, 'script')
         html = WebPage._minimize_tag_content(html, 'style')
         return html
-    
+
     @staticmethod
-    def render_template(file_path: Optional[str] = None, html: Optional[str] = None, **args) -> str:
+    def render_template(file_name: Optional[str] = None, html: Optional[str] = None, **args) -> str:
         """
         Function to render a HTML template (= insert arguments / translation / minimization)
 
-        :param file_path: From which file HTML code should be loaded (Optional)
+        :param file_name: From which file HTML code should be loaded (Optional)
         :param html: The content of the page as html (Optional)
         :param args: Arguments to be inserted into the WebPage with Jinja2
         """
 
-        if file_path is None and html is None:
+        if file_name is None and html is None:
             raise ValueError("Arguments 'file_path' and 'html' are None")
         
+        file_path = os.path.join(CURRENT_DIR_PATH, "templates", file_name)
+
         if not file_path is None:
             if not os.path.isfile(file_path):
                 raise FileNotFoundError(f"File `{file_path}` does not exist")
-        
+
         env = Environment(
             autoescape=select_autoescape(['html', 'xml']),
             undefined=SilentUndefined
         )
 
         if html is None:
-            with open(file_path, "r") as file:
+            with open(file_path, "r", encoding="utf-8") as file:
                 html = file.read()
-        
+
         template = env.from_string(html)
 
         html = template.render(**args)
         html = WebPage.minimize(html)
 
         return html
-
-
-class Captcha:
-    "Class to generate and verify a captcha"
-
-    def __init__(self, captcha_secret: str, data: dict):
-        """
-        :param captcha_secret: A secret token that only the server knows to verify the captcha
-        """
-
-        self.captcha_secret = captcha_secret
-        self.data = data
-    
-    def generate(self) -> Tuple[str, str]:
-        "Generate a captcha for the client"
-
-        image_captcha_code = generate_random_string(secrets.choice([8,9,10,11,12]), with_punctuation=False).upper()
-
-        minimized_data = json.dumps(self.data, indent = None, separators = (',', ':'))
-        captcha_prove = image_captcha_code + "//" + minimized_data
-
-        crypted_captcha_prove = SymmetricEncryption(self.captcha_secret).encrypt(captcha_prove)
-
-        image_captcha = ImageCaptcha(width=320, height=120, fonts=[
-            os.path.join(NEEDED_DIR_PATH, "Comic_Sans_MS.ttf"),
-            os.path.join(NEEDED_DIR_PATH, "DroidSansMono.ttf"),
-            os.path.join(NEEDED_DIR_PATH, "Helvetica.ttf")
-        ])
-
-        captcha_image = image_captcha.generate(image_captcha_code)
-        captcha_image_data = b64encode(captcha_image.getvalue()).decode('utf-8')
-        captcha_image_data = "data:image/png;base64," + captcha_image_data
-
-        return captcha_image_data, crypted_captcha_prove
-    
-    def verify(self, client_input: str, crypted_captcha_prove: str) -> bool:
-        """
-        Verify a captcha
-
-        :param client_input: The input from the client
-        :param crypted_captcha_prove: The encrypted captcha prove generated by the generate function
-        """
-
-        captcha_prove = SymmetricEncryption(self.captcha_secret).decrypt(crypted_captcha_prove)
-
-        captcha_code, data = captcha_prove.split("//")
-        data = json.loads(data)
-
-        return bool(not (data != self.data or captcha_code != client_input))

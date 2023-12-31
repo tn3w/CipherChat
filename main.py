@@ -1,55 +1,65 @@
-from sys import exit
-
-if __name__ != "__main__":
-    exit()
+""" 
+~-~-~-~
+This is a copy of the free chat program "CipherChat" under GPL-3.0 license
+GitHub: https://github.com/tn3w/CipherChat
+~-~-~-~
+"""
 
 import os
-from sys import argv as ARGUMENTS, executable as EXECUTABLE
-from time import time, sleep
 import subprocess
-import plistlib
-from getpass import getpass
-import secrets
-import re
+import tarfile
 import json
+import time
 import atexit
-from flask import Flask, request, render_template_string
+import re
+import sys
+from sys import argv as ARGUMENTS
 import logging
-from cons import VERSION, SYSTEM, CONSOLE, DATA_DIR_PATH, CURRENT_DIR_PATH, BRIDGES_CONF_PATH, NEEDED_DIR_PATH, TEMP_DIR_PATH, TOR_PATH, FACTS, TOR_EXT,\
-    PERSISTENT_STORAGE_CONF_PATH, KEY_FILE_PATH_CONF_PATH, SERVICES_CONF_PATH, SERVICE_SETUP_CONF_PATH, DEFAULT_HIDDEN_SERVICE_DIR_PATH, TEMPLATES_DIR_PATH
-from utils import clear_console, is_password_save, get_password_strength, generate_random_string,\
-    download_file, shorten_text, SecureDelete, Tor, GnuPG, Linux, SymmetricEncryption, JSON,\
-    AsymmetricEncryption, WebPage, ArgumentValidator, Captcha
+from typing import Optional
+from getpass import getpass
+from rich.console import Console
+from rich.style import Style
+from flask import Flask, abort
+from utils import clear_console, get_system_architecture, download_file, get_gnupg_path,\
+                  get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
+                  Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, Hashing, BridgeDB, SymmetricEncryption,\
+                  Proxy, load_persistent_storage_file, dump_persistent_storage_data, shorten_text, atexit_terminate_tor
+from cons import DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
 
+if __name__ != "__main__":
+    sys.exit(1)
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
-    clear_console()
-    print("CipherChat Version", VERSION)
-    exit()
-
+    print("CipherChat Version:", VERSION, "\n")
+    sys.exit(0)
 
 if "-a" in ARGUMENTS or "--about" in ARGUMENTS:
     clear_console()
     print(f"Current version: {VERSION}")
     print("CipherChat is used for secure chatting with end to end encryption and anonymous use of the Tor network for sending / receiving messages, it is released under the GPL v3 on Github. Setting up and using secure chat servers is made easy.")
     print("Use `python cipherchat.py -h` if you want to know all commands. To start use `python cipherchat.py`.")
-    exit(0)
+    sys.exit(0)
 
+CONSOLE = Console()
+ORANGE_STYLE = Style(color="rgb(255,158,51)")
 
 if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     clear_console()
-    delete_path = {"n": DATA_DIR_PATH, "no": DATA_DIR_PATH}.get(input("Delete All? [y or n] ").lower(), CURRENT_DIR_PATH)
+    start_time = time.time()
 
-    start_time = time()
+    with CONSOLE.status("[bold green]All files will be overwritten and deleted several times... (This can take several minutes)"):
+        if os.path.isdir(DATA_DIR_PATH):
+            SecureDelete.directory(DATA_DIR_PATH)
 
-    with CONSOLE.status("[bold green]All files will be overwritten and deleted several times... (This can take several seconds)"):
-        if os.path.isdir(delete_path):
-            SecureDelete.directory(delete_path)
-
-    end_time = time()
+    end_time = time.time()
 
     CONSOLE.log("[green]Completed, all files are irrevocably deleted.","(took", end_time - start_time, "s)")
-    exit(0)
+    time.sleep(5)
+
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("Good Bye. 💩")
+
+    sys.exit(0)
 
 
 if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
@@ -61,123 +71,139 @@ if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
     print("-t, --torhiddenservice      Launches a CipherChat Tor Hidden Service")
     exit(0)
 
-
-if not SYSTEM in ["Windows", "Linux", "macOS"]:
-    clear_console()
-    CONSOLE.print(f"[red][Error] Unfortunately, there is no version of CipherChat for your operating system `{SYSTEM}`.")
-    exit()
-
+SYSTEM, MACHINE = get_system_architecture()
 
 clear_console()
 
+if SYSTEM not in ["Windows", "Linux", "macOS"]:
+    CONSOLE.print(f"[red][Critical Error] Unfortunately, there is no version of CipherChat for your operating system `{SYSTEM}`.")
+    sys.exit(2)
 
-# Install The Onion Router
-if os.path.isfile(TOR_PATH):
-    CONSOLE.log("[green]~ The Onion Router exists")
-else:
-    if SYSTEM == "Linux":
-        try:
-            Linux.install_package("tor")
-        except Exception as e:
-            CONSOLE.log(f"[red]TOR could not be installed because of the following error: '{e}'")
-            exit()
-    elif SYSTEM in ["Windows", "macOS"]:
-        print("Did you know?", secrets.choice(FACTS), "\n")
-        with CONSOLE.status("[bold green]Trying to get the download links for Tor..."):
-            download_link, signature_link = Tor.get_download_link()
-        
-        if download_link is None:
-            raise Exception("[Error] Tor Browser could not be installed on your operating system, install it manually at https://www.torproject.org/download/ ")
-        CONSOLE.log("[green]~ Downloaded Tor Links")
-        
-        if not os.path.isdir(TEMP_DIR_PATH):
-            os.mkdir(TEMP_DIR_PATH)
+if not os.path.isdir(DATA_DIR_PATH):
+    os.mkdir(DATA_DIR_PATH)
 
-        installation_file_path = os.path.join(TEMP_DIR_PATH, "torbrowser." + TOR_EXT)
-        signature_file_path = os.path.join(TEMP_DIR_PATH, "signature.asc")
-
-        download_file(download_link, installation_file_path, "Tor Browser")
-        download_file(signature_link, signature_file_path, "Tor Browser Signature")
-
-        with CONSOLE.status("[bold green]Trying to get the PGP Key Name for The Onion Router..."):
-            key_name = GnuPG.search_key_name("Tor Browser Developers (signing key) <torbrowser@torproject.org>")
-        CONSOLE.log("[green]~ Key Name received")
-        
-        gpg = GnuPG.load_public_keys(key_name)
-        CONSOLE.log("[green]~ Public Keys Loaded")
-
-        with CONSOLE.status("[bold green]Verify The Onion Router Installation File..."):
-            with open(signature_file_path, 'rb') as signature_file:
-                verification = gpg.verify_file(signature_file, installation_file_path)
-        
-        is_valid = True
-
-        if verification.valid:
-            CONSOLE.log("[green]~ The signature is valid")
-        else:
-            CONSOLE.log(f"[red][Error] The signature does not seem to be valid, the following error has occurred: `{verification.status}`\n")
-
-            do_continue = ("Do you still want to start the installation? [y or n] ")
-            if not {"y": True, "yes": True}.get(do_continue.lower(), False):
-                is_valid = False
-
-        if is_valid:
-            with CONSOLE.status("[bold green]Installation file opened, waiting for the installation wizard to finish..."):
-                if SYSTEM == "Windows":
-                    installation_process = subprocess.Popen([installation_file_path])
-                    installation_process.wait()
-                else:
-                    mount_info = subprocess.check_output(["hdiutil", "attach", "-plist", installation_file_path])
-                    mount_info = mount_info.decode("utf-8")
-
-                    mount_info_dict = plistlib.loads(mount_info)
-                    mount_point = mount_info_dict["system-entities"][0]["mount-point"]
-
-                    subprocess.run(["cp", "-R", f"{mount_point}/Tor.app", "/Applications"])
-
-                    subprocess.run(["hdiutil", "detach", mount_point])
-            CONSOLE.log("[green]The Hidden Router Installation Completed")
-
-        with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
+def atexit_delete_files():
+    with CONSOLE.status("[green]Cleaning up..."):
+        if os.path.isdir(TEMP_DIR_PATH):
             SecureDelete.directory(TEMP_DIR_PATH)
-        
-        if not is_valid:
-            CONSOLE.log("[red]Installation not completed, please install manually via https://www.torproject.org/download")
-            exit()
+        if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
+            SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
 
+atexit.register(atexit_delete_files)
 
-clear_console()
+GNUPG_EXECUTABLE_PATH = get_gnupg_path()
 
+if not os.path.isfile(GNUPG_EXECUTABLE_PATH):
+    if SYSTEM == "Linux":
+        Linux.install_package("gpg")
+        GNUPG_EXECUTABLE_PATH = get_gnupg_path()
+    else:
+        CONSOLE.print("[red][Critical Error] Please install gpg on your system.")
+        sys.exit(2)
 
-# Running Tor Hidden Service
+TOR_EXECUTABLE_PATH = {
+    "Windows": os.path.join(DATA_DIR_PATH, "tor/tor/tor.exe")
+}.get(SYSTEM, os.path.join(DATA_DIR_PATH, "tor/tor/tor"))
+
+if not os.path.isfile(TOR_EXECUTABLE_PATH):
+    CONSOLE.print("[bold]~~~ Installing Tor ~~~", style=ORANGE_STYLE)
+    with CONSOLE.status("[green]Trying to get the download links for Tor..."):
+        download_link, signature_link = Tor.get_download_link()
+    CONSOLE.print("[green]~ Trying to get the download links for Tor... Done")
+
+    if None in [download_link, signature_link]:
+        CONSOLE.print("[red][Critical Error] Tor Expert Bundle could not be installed because no download link or signature link could be found, install it manually.")
+        sys.exit(2)
+
+    if not os.path.isdir(TEMP_DIR_PATH):
+        os.mkdir(TEMP_DIR_PATH)
+
+    bundle_file_path = download_file(download_link, TEMP_DIR_PATH, "Tor Expert Bundle")
+    bundle_signature_file_path = download_file(signature_link, TEMP_DIR_PATH, "Tor Expert Bundle Signature")
+
+    with CONSOLE.status("[green]Loading Tor Keys from keys.gnupg.net..."):
+        try:
+            os.environ['http_proxy'] = Proxy._select_random(HTTP_PROXIES)
+            os.environ['https_proxy'] = Proxy._select_random(HTTPS_PROXIES)
+            subprocess.run(
+                [GNUPG_EXECUTABLE_PATH, "--keyserver", "keys.gnupg.net", "--recv-keys", "0xEF6E286DDA85EA2A4BA7DE684E2C6E8793298290"],
+                check=True
+            )
+        except subprocess.CalledProcessError as e:
+            CONSOLE.log(f"[red]An Error occured: `{e}`")
+            CONSOLE.print("[red][Critical Error] Could not load Tor Keys from keys.gnupg.net")
+            sys.exit(2)
+    CONSOLE.print("[green]~ Loading Tor Keys from keys.gnupg.net... Done")
+
+    with CONSOLE.status("[green]Validating Signature..."):
+        try:
+            result = subprocess.run(
+                [GNUPG_EXECUTABLE_PATH, "--verify", bundle_signature_file_path, bundle_file_path],
+                capture_output=True, check=True, text=True
+            )
+            if not result.returncode == 0:
+                CONSOLE.log(f"[red]An Error occured: `{result.stderr}`")
+                CONSOLE.print("[red][Critical Error] Signature is invalid.")
+                sys.exit(2)
+        except subprocess.CalledProcessError as e:
+            CONSOLE.log(f"[red]An Error occured: `{e}`")
+            CONSOLE.print("[red][Critical Error] Signature verification failed.")
+            sys.exit(2)
+    CONSOLE.print("[green]~ Validating Signature... Good Signature")
+
+    with CONSOLE.status("[green]Extracting the TOR archive..."):
+        ARCHIV_PATH = os.path.join(DATA_DIR_PATH, "tor")
+        os.makedirs(os.path.join(DATA_DIR_PATH, "tor"), exist_ok=True)
+
+        with tarfile.open(bundle_file_path, 'r:gz') as tar:
+            tar.extractall(path=ARCHIV_PATH)
+
+        if SYSTEM in ["macOS", "Linux"]:
+            os.system(f"chmod +x {TOR_EXECUTABLE_PATH}")
+
+    with CONSOLE.status("[green]Cleaning up (this can take up to 2 minutes)..."):
+        SecureDelete.directory(TEMP_DIR_PATH)
+    CONSOLE.print("[green]~ Cleaning up... Done")
+
 if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
-    service_setup_info = JSON.load(SERVICE_SETUP_CONF_PATH)
+    clear_console()
+    CONSOLE.print("[bold]~~~ Starting Tor Hidden Service ~~~", style=ORANGE_STYLE)
 
-    CONTROL_PORT, SOCKS_PORT = Tor.get_ports(as_hidden_service=True)
+    with CONSOLE.status("[green]Getting Tor Configuration..."):
+        control_port, socks_port = Tor.get_ports(9000)
+        configuration = Tor.get_hidden_service_config()
 
-    if service_setup_info.get("restart_tor", True):
-        if Tor.is_tor_controller_alive(CONTROL_PORT):
-            Tor.kill_tor_daemon(CONTROL_PORT)
-    
-    HIDDEN_DIR = service_setup_info.get("hidden_service_dir", DEFAULT_HIDDEN_SERVICE_DIR_PATH)
-    HOSTNAME_PATH = os.path.join(HIDDEN_DIR, "hostname")
-    HIDDEN_PORT = service_setup_info.get("hidden_service_port", 8080)
+        control_port = configuration.get("control_port", control_port)
+        control_password = configuration.get("control_password")
+        socks_port = configuration.get("socks_port", socks_port)
+        hidden_service_dir = configuration["hidden_service_directory"]
+        webservice_host, webservice_port = configuration["webservice_host"], configuration["webservice_port"]
+        webservice_host = webservice_host.replace("localhost", "127.0.0.1")
+        without_ui = configuration["without_ui"]
+    CONSOLE.print("[green]~ Getting Tor Configuration... Done")
 
-    while not Tor.is_tor_controller_alive(CONTROL_PORT):
-        with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
-            tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT, as_service=True)
-        
-    atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
+    with CONSOLE.status("[green]Starting Tor Executable..."):
+        tor_process, control_password = Tor.launch_tor_with_config(
+            control_port, socks_port, [], True, control_password,
+            {
+                "hidden_service_dir": hidden_service_dir,
+                "hidden_service_port": f"80 {webservice_host}:{webservice_port}"
+            }
+        )
+    CONSOLE.print("[green]~ Starting Tor Executable.. Done")
+
+    atexit.register(atexit_terminate_tor, control_port = control_port, control_password = control_password, tor_process = tor_process)
+
+    hostname_path = os.path.join(hidden_service_dir, "hostname")
 
     try:
-        with open(HOSTNAME_PATH, "r") as readable_file:
+        with open(hostname_path, "r", encoding = "utf-8") as readable_file:
             HOSTNAME = readable_file.read()
-    except Exception:
+    except:
         HOSTNAME = "???"
 
-    CONSOLE.print(f"[bright_blue]TOR Hidden Service:", HOSTNAME)
+    CONSOLE.print("\n[bright_blue]TOR Hidden Service:", HOSTNAME)
 
-    CAPTCHA_SECRET = generate_random_string(32)
     ASYMMETRIC_ENCRYPTION = AsymmetricEncryption().generate_keys()
     PUBLIC_KEY, PRIVATE_KEY = ASYMMETRIC_ENCRYPTION.public_key, ASYMMETRIC_ENCRYPTION.private_key
 
@@ -188,434 +214,503 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
     @app.route("/ping")
     def ping():
+        "Used to check whether the server is online and which version it has"
+
         return "Pong! CipherChat Chat Service " + str(VERSION)
 
     @app.route("/")
     def index():
-        return WebPage.render_template(os.path.join(TEMPLATES_DIR_PATH, "index.html"))
+        "Displays a user interface to the user when activated"
+
+        if without_ui:
+            return abort(404)
+
+        return WebPage.render_template("index.html")
 
     @app.route("/setup")
     @app.route("/setup/")
     @app.route("/setup/<operating_system>")
-    def setup(operating_system: str = None):
-        return WebPage.render_template(os.path.join(TEMPLATES_DIR_PATH, "setup.html"), None, os = operating_system, hidden_service_hostname = HOSTNAME)
+    def setup(operating_system: Optional[str] = None):
+        "Shows the user an interface for installing CipherChat."
 
-    @app.route("/safe_usage.txt")
-    def safe_usage():
-        SAFE_USAGE_PATH = os.path.join(TEMPLATES_DIR_PATH, "safe_usage.txt")
-        if not os.path.isfile(SAFE_USAGE_PATH):
-            return "No safe_usage.txt provided."
-        with open(SAFE_USAGE_PATH, "r") as readable_file:
-            safe_usage = readable_file.read()
+        if without_ui:
+            return abort(404)
 
-        new_safe_usage = ""
-        for line in safe_usage.split("\n"):
-            if not line.strip().startswith("#"):
-                new_safe_usage += line + "\n"
-
-        return render_template_string("<pre>{{ safe_usage }}</pre>", safe_usage=new_safe_usage)
+        return WebPage.render_template("setup.html", None, os = operating_system, hidden_service_hostname = HOSTNAME)
 
     @app.route("/api/public_key")
     def api_public_key():
+        "Returns the public key for encrypted communication with the server"
+
         return PUBLIC_KEY
 
-    @app.route("/api/register_captcha", methods = ["POST"])
-    def api_register_captcha():
-        if not request.method == "POST":
-            return {"status_code": 400, "error": "Invalid Request method"}
-        if not request.is_json:
-            return {"status_code": 400, "error": "No valid data given as json"}
-        
-        data = request.json
-        if not isinstance(data, dict):
-            return {"status_code": 400, "error": "Data is not given as a dictionary"}
+    app.run(host = webservice_host, port = webservice_port)
 
-        username = data.get("username")
-        hashed_password = data.get("hashed_password")
-        hashed_chat_password = data.get("hashed_chat_password")
-        public_key = data.get("public_key")
-        crypted_private_key = data.get("crypted_private_key")
-        two_factor_token = data.get("two_factor_token")
+    sys.exit(0)
 
-        is_valid_username, username_error = ArgumentValidator.username(username)
-        if not is_valid_username:
-            return username_error
-        
-        is_valid_hashed_password, hashed_password_error = ArgumentValidator.hashed_password(hashed_password)
-        if not is_valid_hashed_password:
-            return hashed_password_error
-        
-        is_valid_hashed_chat_password, hashed_chat_password_error = ArgumentValidator.hashed_chat_password(hashed_chat_password)
-        if not is_valid_hashed_chat_password:
-            return hashed_chat_password_error
-        
-        is_valid_public_key, public_key_error = ArgumentValidator.public_key(public_key)
-        if not is_valid_public_key:
-            return public_key_error
-        
-        is_valid_crypted_private_key, crypted_private_key_error = ArgumentValidator.crypted_private_key(crypted_private_key)
-        if not is_valid_crypted_private_key:
-            return crypted_private_key_error
-        
-        is_valid_two_factor_token, two_factor_token_error = ArgumentValidator.two_factor_token(two_factor_token)
-        if not is_valid_two_factor_token:
-            return two_factor_token_error
-        
-        data = {
-            "username": username,
-            "hashed_password": hashed_password,
-            "hashed_chat_password": hashed_chat_password,
-            "public_key": public_key,
-            "crypted_private_key": crypted_private_key,
-            "two_factor_token": two_factor_token
-        }
+BRIDGE_CONFIG_PATH = os.path.join(DATA_DIR_PATH, "bridge.conf")
+bridge_type, use_default_bridges, use_bridge_db = None, None, None
 
-        captcha_image_data, crypted_captcha_prove = Captcha(CAPTCHA_SECRET).generate()
-        
-        return {
-            "image_data": captcha_image_data,
-            "captcha_prove": crypted_captcha_prove
-        }
-
-    app.run(host = "localhost", port = HIDDEN_PORT)
-    exit()
-
-
-# Choose what bridges to use
-if os.path.isfile(BRIDGES_CONF_PATH):
-    with open(BRIDGES_CONF_PATH, "r") as readable_file:
-        bridges_configuration = readable_file.read().strip()
-    
+if os.path.isfile(BRIDGE_CONFIG_PATH):
     try:
-        bridge_conf = bridges_configuration.split("-")
-        use_build_in, type_of_bridge = {"True": True}.get(bridge_conf[0], False), {"snowflake": "snowflake", "webtunnel": "webtunnel", "meek_lite": "meek_lite"}.get(bridge_conf[1], "obfs4")
-    except:
-        pass
-else:
+        with open(BRIDGE_CONFIG_PATH, 'r', encoding='utf-8') as readable_file:
+            file_config = readable_file.read()
+        bridge_type, use_default_bridges, use_bridge_db = file_config.split("--")
+        use_default_bridges = {"true": True, "false": False}.get(use_default_bridges, True)
+        use_bridge_db = {"true": True, "false": False}.get(use_bridge_db, False)
+
+        if not bridge_type in ["obfs4", "webtunnel", "snowflake", "meek_lite", "vanilla", "random"]:
+            bridge_type = None
+
+        if bridge_type in ["snowflake", "meek_lite"]:
+            use_default_bridges = True
+            use_bridge_db = False
+    except Exception as e:
+        CONSOLE.log(f"[red][Error] The following error occurs when opening and validating the bridge configurations: '{e}'")
+
+if bridge_type is None:
+    bridge_types = ["vanilla", "obfs4", "webtunnel", "snowflake (only buildin)", "meek_lite (only buildin)", "Random selection"]
+    selected_option = 0
+
     while True:
         clear_console()
+        CONSOLE.print("[bold]~~~ Bridge selection ~~~", style=ORANGE_STYLE)
 
-        type_of_bridge = input("Choose Tor Bridge Type (obfs4, snowflake, webtunnel, meek_lite): ")
-        if type_of_bridge in ["obfs4", "snowflake", "webtunnel", "meek_lite"]:
-            break
+        for i, option in enumerate(bridge_types):
+            if i == selected_option:
+                print(f"[>] {option}")
+            else:
+                print(f"[ ] {option}")
+
+        key = input("\nChoose bridge type (c to confirm): ")
+
+        if not key.lower() in ["c", "confirm"]:
+            if len(bridge_types) < selected_option + 2:
+                selected_option = 0
+            else:
+                selected_option += 1
         else:
-            print(f"\n'{type_of_bridge}' is not a bridge type")
-            input("Enter: ")
-    
-    use_build_in = {"y": True, "yes": True, "t": True, "true": True}.get(input("Do you want to use built-in bridges (recommended: no) [y or n]:  ").lower(), False)
-
-    if not os.path.isdir(NEEDED_DIR_PATH):
-        os.mkdir(NEEDED_DIR_PATH)
-    
-    save_content = str(use_build_in) + "-" + type_of_bridge
-    with open(BRIDGES_CONF_PATH, "w") as writeable_file:
-        writeable_file.write(save_content)
-    
-    if not use_build_in:
-        Tor.download_bridges()
-        with CONSOLE.status("Processing Bridges..."):
-            Tor.process_bridges()
-        with CONSOLE.status("[bold green]Cleaning up (This can take up to two minutes)..."):
-            SecureDelete.directory(TEMP_DIR_PATH, quite = True)
-
-
-# Use Persistent Storage?
-if not os.path.isfile(PERSISTENT_STORAGE_CONF_PATH) and not os.path.isdir(DATA_DIR_PATH):
-    while True:
-        clear_console()
-        print("(Please note that if Persistent Storage is not enabled, any messages or files retrieved will not be stored. The server deletes them after a single request, and no data is saved on the client side due to this setting.)")
-        persistent_storage = input("Do you want to use encrypted persistent storage? [Y or n] ")
-
-        if persistent_storage.lower() in ["y", "yes"]:
-            USE_PERSISTENT_STORAGE = True
+            bridge_type = bridge_types[selected_option].replace(" (only buildin)", "").replace("Random selection", "random")
             break
-        elif persistent_storage.lower() in ["n", "no"]:
-            USE_PERSISTENT_STORAGE = False
-            break
-        else:
-            print("[Error] Input invalid, enter either 'Y' or 'n'")
-            input("Enter: ")
 
-elif os.path.isfile(PERSISTENT_STORAGE_CONF_PATH):
-    USE_PERSISTENT_STORAGE = False
-elif os.path.isdir(DATA_DIR_PATH):
-    USE_PERSISTENT_STORAGE = True
+    if bridge_type in ["snowflake", "meek_lite"]:
+        use_default_bridges = True
 
-if not USE_PERSISTENT_STORAGE and not os.path.isfile(PERSISTENT_STORAGE_CONF_PATH):
-    if not os.path.isdir(NEEDED_DIR_PATH):
-        os.mkdir(NEEDED_DIR_PATH)
+if not isinstance(use_default_bridges, bool):
+    use_buildin_input = input("Use buildin bridges? [y - yes, n - no]: ")
+    use_default_bridges = use_buildin_input.startswith("y")
 
-    open(PERSISTENT_STORAGE_CONF_PATH, "x")
+    if use_default_bridges:
+        use_bridge_db = False
 
-
-# Set a master password if Persistent Storage is enabled
-if USE_PERSISTENT_STORAGE:
-    if os.path.isfile(KEY_FILE_PATH_CONF_PATH):
-        with open(KEY_FILE_PATH_CONF_PATH, "r", encoding="utf-8") as readable_file:
-            crypted_key_file_path = readable_file.read()
-
-        while True:
-            clear_console()
-            master_password = getpass("Enter your master password: ")
-
-            # Trying Password on Key File Path Conf File
-            try:
-                key_file_path = SymmetricEncryption(master_password).decrypt(crypted_key_file_path)
-            except Exception as e:
-                print(f"[Error] Error decrypting the key file path configuration file: '{e}'")
-                print("This is probably because you entered the wrong password or the configuration file is corrupt.")
-                input("Enter: ")
-            else:
-                KEY_FILE_PATH = key_file_path
-                break
+if not isinstance(use_bridge_db, bool):
+    if bridge_type in ["vanilla", "obfs4", "webtunnel", "random"]:
+        use_bridge_db_input = input("Use BridgeDB to get Bridges? [y - yes, n - no]: ")
+        use_bridge_db = use_bridge_db_input.startswith("y")
     else:
-        while True:
-            clear_console()
-            master_password = getpass("Please enter a secure master password: ")
+        use_bridge_db = False
 
-            password_strength = get_password_strength(master_password)
-            print("Security Score:", password_strength, "/ 100%\n")
-
-            is_save, error = is_password_save(master_password)
-            if not is_save:
-                print(error)
-                input("Enter: ")
-            else:
-                KEEP = True
-                if password_strength <= 85:
-                    keep_input = input("Your password is insecure, enter k to keep it: ")
-                    if not keep_input.lower() in ["k", "keep"]:
-                        KEEP = False
-                    else:
-                        print("")
-
-                if KEEP:
-                    repeat_master_password = getpass("Please repeat your master password: ")
-                    if not repeat_master_password == master_password:
-                        print("[Error] The passwords do not match.")
-                        input("Enter: ")
-                    else:
-                        break
-
-        # Get Key File Path
-        while True:
-            clear_console()
-            keyfile_path = input("Enter a folder where the keyfile should be saved or Enter: ")
-
-            if keyfile_path == "":
-                KEY_FILE_PATH = os.path.join(DATA_DIR_PATH, "keys.conf")
-                break
-
-            if not os.path.isdir(keyfile_path):
-                print("[Error] The given folder does not exist.")
-                input("Enter: ")
-            else:
-                KEY_FILE_PATH = os.path.join(keyfile_path, "keys.conf")
-                break
-
-        # Create Key File Path Configuration File
-        if not os.path.isdir(DATA_DIR_PATH):
-            os.mkdir(DATA_DIR_PATH)
-
-        with CONSOLE.status("[bold green]Encrypting the Key File path..."):
-            crypted_key_file_path = SymmetricEncryption(master_password).encrypt(KEY_FILE_PATH)
-
-        with CONSOLE.status("[bold green]Saving the Key File path..."):
-            with open(KEY_FILE_PATH_CONF_PATH, "w", encoding="utf-8") as writeable_file:
-                writeable_file.write(crypted_key_file_path)
-
-    # Get Secret Key
-    if not os.path.isfile(KEY_FILE_PATH):
-        with CONSOLE.status("[bold green]Generate Secret Key..."):
-            SECRET_KEY = generate_random_string(512)
-
-        with CONSOLE.status("[bold green]Encrypt Secret Key with Password..."):
-            crypted_secret_key = SymmetricEncryption(master_password).encrypt(SECRET_KEY)
-
-        try:
-            if not os.path.isdir(os.path.dirname(KEY_FILE_PATH)):
-                os.mkdir(os.path.dirname(KEY_FILE_PATH))
-        except:
-            KEY_FILE_PATH = os.path.join(DATA_DIR_PATH, "keys.conf")
-
-        with CONSOLE.status("[bold green]Saving the Secret Key..."):
-            try:
-                with open(KEY_FILE_PATH, "w", encoding="utf-8") as writeable_file:
-                    writeable_file.write(crypted_secret_key)
-            except:
-                KEY_FILE_PATH = os.path.join(DATA_DIR_PATH, "keys.conf")
-                with open(KEY_FILE_PATH, "w", encoding="utf-8") as writeable_file:
-                    writeable_file.write(crypted_secret_key)
-    else:
-        with CONSOLE.status("[bold green]Loading the Encrypted Secret Key..."):
-            with open(KEY_FILE_PATH, "r", encoding="utf-8") as readable_file:
-                crypted_secret_key = readable_file.read()
-
-        with CONSOLE.status("[bold green]Decrypting the Secret Key..."):
-            SECRET_KEY = SymmetricEncryption( master_password).decrypt(crypted_secret_key)
-
-    PASSKEY = master_password + SECRET_KEY
-
+try:
+    with open(BRIDGE_CONFIG_PATH, "w", encoding="utf-8") as writeable_file:
+        writeable_file.write(
+            '--'.join(
+                [
+                    bridge_type,
+                    {True: "true", False: "false"}.get(use_default_bridges),
+                    {True: "true", False: "false"}.get(use_bridge_db)
+                ]
+            )
+        )
+except Exception as e:
+    CONSOLE.log(f"[red][Error] Error saving the bridge configuration file: '{e}'")
 
 clear_console()
 
-with CONSOLE.status("[bold green]Try to start the Tor Daemon with Service..."):
-    CONTROL_PORT, SOCKS_PORT = Tor.get_ports()
-    
-    while not Tor.is_tor_controller_alive(CONTROL_PORT):
-        tor_process = Tor.start_tor_daemon(CONTROL_PORT, SOCKS_PORT)
+bridges = None
 
-atexit.register(Tor.at_exit_kill_tor, CONTROL_PORT, tor_process)
-
-
-# Getting the chat server
-while True:
-    clear_console()
-    print("(Example: 4ryc2mpb67ciikwumutb47xgt7fxrnuek5xe62kx6dgdbemr6kbwxx47.onion)")
-    service_address = input("Enter the URL of the CipherChat Tor Hidden Service: ")
-
-    if not re.match(r"^[a-z2-7]{56}\.onion$", service_address):
-        print("[Error] You have not given a valid Onion address")
-        input("Enter: ")
+if not use_default_bridges:
+    is_file_missing = False
+    if bridge_type != "random":
+        bridge_path = os.path.join(DATA_DIR_PATH, bridge_type + ".json")
+        is_file_missing = not os.path.isfile(bridge_path)
     else:
-        with CONSOLE.status("[bold green]Getting Tor Session..."):
-            session = Tor.get_request_session(CONTROL_PORT, SOCKS_PORT)
+        for specific_bridge_type in ["vanilla", "obfs4", "webtunnel"]:
+            bridge_path = os.path.join(DATA_DIR_PATH, specific_bridge_type + ".json")
+            is_file_missing = not os.path.isfile(bridge_path)
 
-        start_time = time()
-        with CONSOLE.status("[bold green]Requesting Service Address..."):
-            response = session.get("http://" + service_address + "/ping")
-        end_time = time()
-
-        CONSOLE.log("[green]Request took", end_time-start_time, "s")
-        try:
-            response.raise_for_status()
-            response_content = response.content.decode("utf-8")
-        except Exception as e:
-            print(f"[Error] Error while requesting the ChatServer: '{e}'")
-            input("Enter: ")
-        else:
-            shorten_response_content = shorten_text(response_content, 50)
-
-            if not "Pong! CipherChat Chat Service " in response_content:
-                print(f"[Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
-                input("Enter: ")
-            else:
-
-                try:
-                    SERVICE_VERSION = float(response_content.replace("Pong! CipherChat Chat Service ", ""))
-                except Exception as e:
-                    print(f"[Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
-                    input("Enter: ")
-
-                if SERVICE_VERSION != VERSION:
-                    print("[Error] This service does not have the same version as you" +
-                          f"\nService Version: {SERVICE_VERSION}\nYour Version: {VERSION}")
-                    input("Enter: ")
-                else:
-                    SERVICE_ADDRESS = service_address
-                    break
-
-
-SAVED_SERVICES = None
-SAVED_SERVICE = None
-SERVICE_ACCOUNT_NAME = None
-SERVICE_ACCOUNT_PASSWORD = None
-
-
-# Check if account name or password is stored and if service already has cache data
-if USE_PERSISTENT_STORAGE:
-    if os.path.isfile(SERVICES_CONF_PATH):
-        with CONSOLE.status("[bold green]Loading stored data for all services..."):
-            with open(SERVICES_CONF_PATH, "r") as readable_file:
-                crypted_services = readable_file.read()
-        with CONSOLE.status("[bold green]Decrypting stored data for all services..."):
-            try:
-                SAVED_SERVICES = json.loads(SymmetricEncryption(PASSKEY).decrypt(crypted_services))
-            except Exception as e:
-                print(f"[Error] Error while decrypting the services: '{e}'")
-        if SAVED_SERVICES:
-            if SAVED_SERVICES.get(SERVICE_ADDRESS):
-                SAVED_SERVICE = SAVED_SERVICES.get(SERVICE_ADDRESS)
-    
-    if SAVED_SERVICE:
-        SERVICE_ACCOUNT_NAME = SAVED_SERVICE["name"]
-        SERVICE_ACCOUNT_PASSWORD = SAVED_SERVICE["password"]
-
-
-ACCOUNT_CREDS = None
-
-
-# Login cycle
-while not ACCOUNT_CREDS:
-    service_action = None
-
-    if SERVICE_ACCOUNT_NAME:
-        service_action = "login"
-
-    # Get Action, Login or Register?
-    while not service_action:
-        clear_console()
-
-        print(f"Connected to `{service_address}`")
-        input_service_action = input("l - Log in or r - Register: ")
-
-        if input_service_action.lower() in ["l", "login", "log in"]:
-            service_action = "login"
-        elif input_service_action.lower() in ["r", "register"]:
-            service_action = "register"
-        else:
-            print("[Error] Incorrect arguments entered.")
-            input("Enter: ")
-    
-    header = {"login": "Log in", "register": "Register"}.get(service_action)
-    
-    while not SERVICE_ACCOUNT_NAME:
-        clear_console()
-
-        print(f"*** {header} ***")
-        print(f"Connected to `{service_address}`\n")
-
-        input_account_name = input("Please enter your account name: ")
-
-        if len(input_account_name) > 20 or len(input_account_name) < 3:
-            print("[Error] The account name has the wrong length, it must be longer than 3 characters and smaller than 20.")
-            input("Enter: ")
-        else:
-            SERVICE_ACCOUNT_NAME = input_account_name
-
-    while not SERVICE_ACCOUNT_PASSWORD:
-        clear_console()
-
-        print(f"*** {header} ***")
-        print(f"Connected to `{service_address}`")
-        print(f"Accountname is `{SERVICE_ACCOUNT_NAME}`\n")
-
-        input_account_password = getpass("Please enter your account password: ")
-
-        is_save, error = is_password_save(input_account_password)
-        if not is_save:
-            print(error)
-            input("Enter: ")
-        else:
-            if service_action == "register":
-                print("Password Score: ", get_password_strength(input_account_password), "/ 100%\n")
-
-                input_account_password_repeat = getpass("Please enter your account password again: ")
-
-                if input_account_password_repeat != input_account_password:
-                    print("[Error] Passwords are not the same.")
-                    input("Enter: ")
-                else:
-                    SERVICE_ACCOUNT_PASSWORD = input_account_password
-                    break
-            else:
-                SERVICE_ACCOUNT_PASSWORD = input_account_password
+            if is_file_missing:
                 break
 
-    if service_action == "login":
-        # Authorization with password, then server sends private keys encrypted with password (if Persistent Storage is not enabled), and new encrypted messages
+    if is_file_missing:
+        clear_console()
+        CONSOLE.print("[bold]~~~ Downloading Tor Bridges ~~~", style=ORANGE_STYLE)
+
+        bridges = Bridge.choose_buildin(bridge_type)
+
+        control_port, socks_port = Tor.get_ports(4000)
+
+        with CONSOLE.status("[green]Starting Tor Executable..."):
+            tor_process, control_password = Tor.launch_tor_with_config(control_port, socks_port, bridges)
+
+        if tor_process is None:
+            CONSOLE.print("[red][Error] Tor apparently could not be started properly")
+        else:
+            atexit.register(atexit_terminate_tor, control_port = control_port, control_password = control_password, tor_process = tor_process)
+
+            if not os.path.isdir(TEMP_DIR_PATH):
+                os.mkdir(TEMP_DIR_PATH)
+
+            session = Tor.get_requests_session(control_port, control_password, socks_port)
+
+            if bridge_type != "random":
+                if not use_bridge_db:
+                    Bridge.download(bridge_type, session)
+                else:
+                    while True:
+                        with CONSOLE.status("[green]Requesting Captcha from BridgeDB.."):
+                            captcha_image_bytes, captcha_challenge_value = BridgeDB.get_captcha_challenge(bridge_type, session)
+
+                        while True:
+                            print("-" * 20)
+                            show_image_in_console(captcha_image_bytes)
+                            captcha_input = input("Enter the characters from the captcha: ")
+
+                            if captcha_input == "":
+                                CONSOLE.print("\n[red][Critical Error] No captcha code was entered")
+                                input("Enter: ")
+                            elif len(captcha_input) < 5 or len(captcha_input) > 10:
+                                CONSOLE.print("\n[red][Critical Error] The captcha code cannot be correct")
+                                input("Enter: ")
+                            else:
+                                break
+
+                        bridges = BridgeDB.get_bridges(bridge_type, captcha_input, captcha_challenge_value, session)
+
+                        if bridges is None:
+                            CONSOLE.print("\n[red][Critical Error] The captcha code was not correct")
+                            input("Enter: ")
+                        else:
+                            break
+
+                    with open(os.path.join(DATA_DIR_PATH, bridge_type + ".json"), "w", encoding = "utf-8") as writeable_file:
+                        json.dump(bridges, writeable_file)
+            else:
+                if not use_bridge_db:
+                    for specific_bridge_type in ["vanilla", "obfs4", "webtunnel"]:
+                        bridge_path = os.path.join(DATA_DIR_PATH, specific_bridge_type + ".json")
+                        Bridge.download(specific_bridge_type, session)
+                else:
+                    while True:
+                        with CONSOLE.status("[green]Requesting Captcha from BridgeDB.."):
+                            captcha_image_bytes, captcha_challenge_value = BridgeDB.get_captcha_challenge(bridge_type, session)
+                        
+                        captcha_input = None
+                        
+                        while True:
+                            print("-" * 20)
+                            try:
+                                show_image_in_console(captcha_image_bytes)
+                            except:
+                                break
+                            captcha_input = input("Enter the characters from the captcha: ")
+
+                            if captcha_input == "":
+                                CONSOLE.print("\n[red][Critical Error] No captcha code was entered")
+                                input("Enter: ")
+                            elif len(captcha_input) < 5 or len(captcha_input) > 10:
+                                CONSOLE.print("\n[red][Critical Error] The captcha code cannot be correct")
+                                input("Enter: ")
+                            else:
+                                break
+                        
+                        if captcha_input == None:
+                            continue
+
+                        for specific_bridge_type in ["vanilla", "obfs4", "webtunnel"]:
+                            bridge_path = os.path.join(DATA_DIR_PATH, specific_bridge_type + ".json")
+                            if not os.path.isfile(bridge_path):
+                                bridges = BridgeDB.get_bridges(specific_bridge_type, captcha_input, captcha_challenge_value, session)
+
+                                if bridges is None:
+                                    CONSOLE.print("\n[red][Critical Error] The captcha code was not correct")
+                                    input("Enter: ")
+                                    break
+
+                                with open(os.path.join(DATA_DIR_PATH, specific_bridge_type + ".json"), "w", encoding = "utf-8") as writeable_file:
+                                    json.dump(bridges, writeable_file)
+                        
+                        is_file_missing = False
+                        for file in BRIDGE_FILES:
+                            if not os.path.isfile(file):
+                                is_file_missing = True
+                        
+                        if not is_file_missing:
+                            break
+
+            with CONSOLE.status("[green]Terminating Tor..."):
+                Tor.send_shutdown_signal(control_port, control_password)
+                time.sleep(1)
+                tor_process.terminate()
+
+            with CONSOLE.status("[green]Cleaning up (this can take up to 1 minute)..."):
+                SecureDelete.directory(TEMP_DIR_PATH)
+            CONSOLE.print("[green]~ Cleaning up... Done")
+
+
+PERSISTENT_STORAGE_CONF_PATH = os.path.join(DATA_DIR_PATH, "persistent-storage.conf")
+PERSISTENT_STORAGE_KEYFILE_PATH = os.path.join(DATA_DIR_PATH, "persistent-storage.key")
+use_persistant_storage, store_user_data = None, None
+persistent_storage_password = None
+persistent_storage_key = None
+
+if os.path.isfile(PERSISTENT_STORAGE_CONF_PATH):
+    try:
+        with open(PERSISTENT_STORAGE_CONF_PATH, "r", encoding = "utf-8") as readable_file:
+            persistent_storage_configuration = readable_file.read()
+
+        conf_use_persistent_storage, conf_store_user_data, encrypted_persistent_storage_key = persistent_storage_configuration.split("--")
+        use_persistant_storage = {"true": True, "false": False}.get(conf_use_persistent_storage)
+        store_user_data = {"true": True, "false": False}.get(conf_store_user_data)
+
+        if not use_persistant_storage:
+            store_user_data = False
+
+        while persistent_storage_password is None:
+            clear_console()
+            CONSOLE.print("[bold]~~~ Persistent Storage ~~~", style=ORANGE_STYLE)
+            input_persistent_storage_password = getpass("Please enter your Persistent Storage password: ")
+
+            if input_persistent_storage_password == "":
+                CONSOLE.print("\n[red][Error] No password was entered.")
+                input("Enter: ")
+                continue
+                
+            try:
+                persistent_storage_key = SymmetricEncryption(input_persistent_storage_password).decrypt(encrypted_persistent_storage_key)
+                if len(persistent_storage_key) != 128:
+                    persistent_storage_key = None
+                    raise Exception()
+            except:
+                CONSOLE.print("\n[red][Error] The password entered is not the Persistent Storage password")
+                input("Enter: ")
+                continue
+            else:
+                persistent_storage_password = input_persistent_storage_password
+    except:
         pass
-    else:
-        # Solve captcha, send result and solution
-        # Then: Generate key pair if persistent storage is off, send public key without encryption and private key with password encryption to server if not stored on device, also send password hash and account name
-        pass
+
+if use_persistant_storage is None:
+    clear_console()
+    CONSOLE.print("[bold]~~~ Persistent Storage ~~~", style=ORANGE_STYLE)
+    input_use_persistant_storage = input("Would you like to use Persistent Storage? [y - yes or n - no] ")
+    use_persistant_storage = input_use_persistant_storage.lower().startswith("y")
+
+    if use_persistant_storage:
+        input_store_user_data = input("Do you want us to save usernames and passwords? [y - yes or n - no] ")
+        store_user_data = input_store_user_data.lower().startswith("y")
+
+if use_persistant_storage:
+    while persistent_storage_password is None:
+        clear_console()
+        CONSOLE.print("[bold]~~~ Persistent Storage ~~~", style=ORANGE_STYLE)
+        print("Would you like to use Persistent Storage? [y - yes or n - no]", {True: "yes", False: "no"}.get(use_persistant_storage))
+        print("Do you want us to save usernames and passwords? [y - yes or n - no]", {True: "yes", False: "no"}.get(store_user_data))
+
+        input_persistent_storage_password = getpass("\nPlease enter a strong password: ")
+
+        if input_persistent_storage_password == "":
+            CONSOLE.print("\n[red][Critical Error] No password was entered.")
+            input("Enter: ")
+            continue
+
+        with CONSOLE.status("[green]Calculating the password strength..."):
+            password_strength = get_password_strength(input_persistent_storage_password)
+            password_strength_color = "green" if password_strength > 95 else "yellow" if password_strength > 80 else "red"
+        CONSOLE.print(f"[{password_strength_color}]Password Strength: {password_strength}% / 100%")
+
+        if password_strength < 80:
+            CONSOLE.print("\n[red][Error] Your password is not secure enough.")
+            input_continue = input("Still use it? [y - yes or n - no] ")
+
+            if not input_continue.lower().startswith("y"):
+                continue
+
+        with CONSOLE.status("[green]Checking your password for data leaks..."):
+            is_password_safe = is_password_pwned(input_persistent_storage_password)
+
+        if not is_password_safe:
+            CONSOLE.print("\n[red][Error] Your password is included in data leaks.")
+            input_continue = input("Still use it? [y - yes or n - no] ")
+
+            if not input_continue.lower().startswith("y"):
+                continue
+
+        input_persistent_storage_password_check = getpass("\nPlease enter your password again: ")
+
+        if not input_persistent_storage_password == input_persistent_storage_password_check:
+            CONSOLE.print("[red][Critical Error] The passwords do not match.")
+            input("Enter: ")
+            continue
+
+        persistent_storage_password = input_persistent_storage_password
+    
+    if persistent_storage_key is None:
+        persistent_storage_key = generate_random_string(128)
+    
+    persistent_storage_encryptor = SymmetricEncryption(persistent_storage_password + persistent_storage_key)
+
+with open(PERSISTENT_STORAGE_CONF_PATH, "w", encoding = "utf-8") as writeable_file:
+    persistent_storage_configuration = [{True: "true", False: "false"}.get(use_persistant_storage), {True: "true", False: "false"}.get(store_user_data)]
+    if not persistent_storage_password is None:
+        encrypted_persistent_storage_key = SymmetricEncryption(persistent_storage_password).encrypt(persistent_storage_key)
+        persistent_storage_configuration.append(encrypted_persistent_storage_key)
+
+    writeable_file.write('--'.join(persistent_storage_configuration))
+
+while True:
+    saved_hidden_services = {}
+
+    SAVED_HIDDEN_SERVICES_PATH = os.path.join(DATA_DIR_PATH, "saved-hidden-services.pst")
+
+    if use_persistant_storage:
+        if os.path.isfile(SAVED_HIDDEN_SERVICES_PATH):
+            try:
+                saved_hidden_services = load_persistent_storage_file(SAVED_HIDDEN_SERVICES_PATH, persistent_storage_encryptor)
+            except:
+                pass
+            
+    current_hidden_service = None
+    console_content = None
+    if not len(saved_hidden_services) == 0:
+        all_options = list(saved_hidden_services.keys()) + ["Use other hidden service"]
+        selected_option = 0
+
+        while True:
+            clear_console()
+            CONSOLE.print("[bold]~~~ Hidden Service selection ~~~", style=ORANGE_STYLE)
+            console_content = ""
+
+            for i, option in enumerate(all_options):
+                if i == selected_option:
+                    console_content += f"[>] {option}\n"
+                    print(f"[>] {option}")
+                else:
+                    console_content += f"[ ] {option}\n"
+                    print(f"[ ] {option}")
+
+            key = input("\nSelect Hidden Service (c to confirm): ")
+
+            if not key.lower() in ["c", "confirm"]:
+                if len(all_options) < selected_option + 2:
+                    selected_option = 0
+                else:
+                    selected_option += 1
+            else:
+                if not selected_option + 1 == len(all_options):
+                   current_hidden_service = all_options[selected_option]
+                break
+    
+    if current_hidden_service is None:
+        clear_console()
+        CONSOLE.print("[bold]~~~ Hidden Service selection ~~~", style=ORANGE_STYLE)
+        if not console_content is None:
+            print(console_content)
+            print("Select Hidden Service (c to confirm): c\n")
+
+        bridges = Bridge.choose_bridges(use_default_bridges, bridge_type)
+        control_port, socks_port = Tor.get_ports(7000)
+
+        with CONSOLE.status("[green]Starting Tor Executable..."):
+            tor_process, control_password = Tor.launch_tor_with_config(control_port, socks_port, bridges)
+
+        if tor_process is None:
+            CONSOLE.print("[red][Critical Error] Tor apparently could not be started properly")
+        else:
+            atexit.register(atexit_terminate_tor, control_port = control_port, control_password = control_password, tor_process = tor_process)
+            while True:
+                clear_console()
+                CONSOLE.print("[bold]~~~ Hidden Service selection ~~~", style=ORANGE_STYLE)
+                if not console_content is None:
+                    print(console_content)
+                    print("Select Hidden Service (c to confirm): c\n")
+                service_address = input("Enter the Hostname of the CipherChat chat server: ")
+                service_address = service_address.strip()
+
+                if service_address == "":
+                    CONSOLE.print("\n[red][Error] You have not entered a hidden service address.")
+                    input("Enter: ")
+                else:
+                    if service_address == "b":
+                        break
+                    match = re.search(r"[a-z2-7]{56}\.onion", service_address)
+
+                    if not match:
+                        CONSOLE.print("\n[red][Error] You have not given a valid hidden service address")
+                        input("Enter: ")
+                    else:
+                        service_address = match.group(0)
+                        with CONSOLE.status("[green]Getting Tor Session..."):
+                            session = Tor.get_requests_session(control_port, control_password, socks_port)
+
+                        end_time = None
+
+                        try:
+                            start_time = time.time()
+                            with CONSOLE.status("[green]Requesting Service Address..."):
+                                response = session.get("http://" + service_address + "/ping")
+                            end_time = time.time()
+                            CONSOLE.print("[green]Request took", end_time-start_time, "s")
+                            response.raise_for_status()
+                            response_content = response.content.decode("utf-8")
+                        except Exception as e:
+                            if end_time is None:
+                                end_time = time.time()
+                                CONSOLE.print("[green]Request took", end_time-start_time, "s")
+
+                            CONSOLE.print(f"\n[red][Error] Error while requesting the chat server: '{e}'")
+                            input("Enter: ")
+                        else:
+                            shorten_response_content = shorten_text(response_content, 50)
+
+                            if not "Pong! CipherChat Chat Service " in response_content:
+                                CONSOLE.print(f"\n[red][Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
+                                input("Enter: ")
+                            else:
+                                try:
+                                    service_version = float(response_content.replace("Pong! CipherChat Chat Service ", ""))
+                                except Exception as e:
+                                    CONSOLE.print(f"\n[red][Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
+                                    input("Enter: ")
+                                else:
+                                    if service_version != VERSION:
+                                        CONSOLE.print("\n[red][Error] This service does not have the same version as you" +
+                                            f"\nService Version: {service_version}\nYour Version: {VERSION}")
+                                        input("Enter: ")
+                                    else:
+                                        current_hidden_service = service_address
+                                        break
+
+            with CONSOLE.status("[green]Terminating Tor..."):
+                Tor.send_shutdown_signal(control_port, control_password)
+                time.sleep(1)
+                tor_process.terminate()
+    
+    if current_hidden_service is None:
+        continue
+    
+    if use_persistant_storage:
+        if os.path.isfile(SAVED_HIDDEN_SERVICES_PATH):
+            try:
+                saved_hidden_services = load_persistent_storage_file(SAVED_HIDDEN_SERVICES_PATH, persistent_storage_encryptor)
+            except:
+                pass
+        else:
+            saved_hidden_services = {}
+        
+        if saved_hidden_services.get(current_hidden_service) is None:
+            saved_hidden_services[current_hidden_service] = {}
+        
+        try:
+            dump_persistent_storage_data(SAVED_HIDDEN_SERVICES_PATH, saved_hidden_services, persistent_storage_encryptor)
+        except:
+            pass

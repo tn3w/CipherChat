@@ -212,3 +212,7 @@ CipherChat mainly tries to achieve the following:
 - Anonymity of every user and server through the TOR network
 
 The code should be easily understandable and verifiable so that the security can be checked and verified by several authorities, which also helps to find zero-day exploits more quickly.
+
+## To do list
+- [ ] ask for username and password
+- [ ] save username and password encrypted

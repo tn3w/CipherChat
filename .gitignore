@@ -161,9 +161,4 @@ cython_debug/
 
 tmp/
 data/
-needed/*.conf
-needed/obfs4.json
-needed/snowflake.json
-needed/webtunnel.json
-hiddenservice/
 test*.py
