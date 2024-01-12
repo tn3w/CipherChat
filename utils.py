@@ -365,6 +365,7 @@ def download_file(url: str, dict_path: Optional[str] = None,
                         downloaded_bytes += len(chunk)
 
                     progress.update(task, completed=downloaded_bytes)
+            progress.update(task, completed=total_length)
         else:
             return None
 
