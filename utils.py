@@ -340,8 +340,8 @@ def download_file(url: str, dict_path: Optional[str] = None,
             return None
 
         if response.status_code == 200:
-            total_length = int(response.headers.get('content-length'))
-
+            total_length = response.headers.get('content-length')
+            total_length = 500000 if total_length is None else int(total_length)
             
             if not total_length is None:
                 if operation_name:
@@ -359,9 +359,12 @@ def download_file(url: str, dict_path: Optional[str] = None,
                     else:
                         file_bytes += chunk
 
-                    if not total_length is None:
+                    if downloaded_bytes > total_length:
+                        downloaded_bytes = total_length
+                    elif not downloaded_bytes == total_length:
                         downloaded_bytes += len(chunk)
-                        progress.update(task, completed=downloaded_bytes)
+
+                    progress.update(task, completed=downloaded_bytes)
         else:
             return None
 

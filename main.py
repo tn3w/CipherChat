@@ -84,17 +84,20 @@ if not os.path.isdir(DATA_DIR_PATH):
     os.mkdir(DATA_DIR_PATH)
 
 def atexit_delete_files():
-    with CONSOLE.status("[green]Cleaning up..."):
-        try:
-            if os.path.isdir(TEMP_DIR_PATH):
-                SecureDelete.directory(TEMP_DIR_PATH)
-        except:
-            pass
-        try:
-            if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
-                SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
-        except:
-            pass
+    try:
+        with CONSOLE.status("[green]Cleaning up..."):
+            try:
+                if os.path.isdir(TEMP_DIR_PATH):
+                    SecureDelete.directory(TEMP_DIR_PATH)
+            except:
+                pass
+            try:
+                if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
+                    SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
+            except:
+                pass
+    except:
+        pass
 
 atexit.register(atexit_delete_files)
 
@@ -176,7 +179,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     clear_console()
     CONSOLE.print("[bold]~~~ Starting Tor Hidden Service ~~~", style=ORANGE_STYLE)
 
-    file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master", return_as_bytes = True)
+    file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master",  operation_name = "Source Code", return_as_bytes = True)
     with CONSOLE.status("[green]Generating sha256 checksum..."):
         try:
             sha256_checksum = hashlib.sha256(file_bytes).hexdigest()
