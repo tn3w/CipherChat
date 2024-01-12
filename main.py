@@ -23,7 +23,7 @@ import hashlib
 from flask import Flask, abort
 from utils import clear_console, get_system_architecture, download_file, get_gnupg_path,\
                   get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
-                  Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, Hashing, BridgeDB, SymmetricEncryption,\
+                  Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption,\
                   Proxy, load_persistent_storage_file, dump_persistent_storage_data, shorten_text, atexit_terminate_tor
 from cons import DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
 
@@ -232,6 +232,15 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
             return abort(404)
 
         return WebPage.render_template("index.html")
+    
+    @app.route("/about")
+    def about():
+        "Shows the user the 'About CipherChat' page that is intended to answer important questions"
+
+        if without_ui:
+            return abort(404)
+
+        return WebPage.render_template("about.html", version = VERSION, status = "None")
 
     @app.route("/setup")
     @app.route("/setup/")
