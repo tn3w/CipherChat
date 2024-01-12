@@ -85,10 +85,16 @@ if not os.path.isdir(DATA_DIR_PATH):
 
 def atexit_delete_files():
     with CONSOLE.status("[green]Cleaning up..."):
-        if os.path.isdir(TEMP_DIR_PATH):
-            SecureDelete.directory(TEMP_DIR_PATH)
-        if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
-            SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
+        try:
+            if os.path.isdir(TEMP_DIR_PATH):
+                SecureDelete.directory(TEMP_DIR_PATH)
+        except:
+            pass
+        try:
+            if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
+                SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
+        except:
+            pass
 
 atexit.register(atexit_delete_files)
 
@@ -176,7 +182,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
             sha256_checksum = hashlib.sha256(file_bytes).hexdigest()
         CONSOLE.print("[green]~ Generating sha256 checksum... Done")
     except TypeError:
-        pass
+        sha256_checksum = ""
 
     with CONSOLE.status("[green]Getting Tor Configuration..."):
         control_port, socks_port = Tor.get_ports(9000)
