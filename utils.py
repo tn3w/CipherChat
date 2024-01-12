@@ -88,7 +88,7 @@ def get_console_columns():
     "Returns the console columns"
 
     if os.name == 'nt':
-        _, columns = shutil.get_terminal_size()
+        columns, _ = shutil.get_terminal_size()
         return columns
     else:
         _, columns = os.popen('stty size', 'r').read().split()

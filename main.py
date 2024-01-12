@@ -170,10 +170,13 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     clear_console()
     CONSOLE.print("[bold]~~~ Starting Tor Hidden Service ~~~", style=ORANGE_STYLE)
 
-    file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master", return_as_bytes = True)
-    with CONSOLE.status("[green]Generating sha256 checksum..."):
-        sha256_checksum = hashlib.sha256(file_bytes).hexdigest()
-    CONSOLE.print("[green]~ Generating sha256 checksum... Done")
+    try:
+        file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master", return_as_bytes = True)
+        with CONSOLE.status("[green]Generating sha256 checksum..."):
+            sha256_checksum = hashlib.sha256(file_bytes).hexdigest()
+        CONSOLE.print("[green]~ Generating sha256 checksum... Done")
+    except TypeError:
+        pass
 
     with CONSOLE.status("[green]Getting Tor Configuration..."):
         control_port, socks_port = Tor.get_ports(9000)
