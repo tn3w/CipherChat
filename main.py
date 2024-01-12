@@ -176,15 +176,17 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     clear_console()
     CONSOLE.print("[bold]~~~ Starting Tor Hidden Service ~~~", style=ORANGE_STYLE)
 
-    try:
-        file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master", return_as_bytes = True)
-        with CONSOLE.status("[green]Generating sha256 checksum..."):
+    file_bytes = download_file("https://codeload.github.com/tn3w/CipherChat/zip/refs/heads/master", return_as_bytes = True)
+    with CONSOLE.status("[green]Generating sha256 checksum..."):
+        try:
             sha256_checksum = hashlib.sha256(file_bytes).hexdigest()
-        CONSOLE.print("[green]~ Generating sha256 checksum... Done")
-    except TypeError:
-        sha256_checksum = ""
+        except TypeError as e:
+            CONSOLE.print(f"[red][Error] Error generating the sha265 checksum: `{e}`")
+            sha256_checksum = ""
+        else:
+            CONSOLE.print("[green]~ Generating sha256 checksum... Done")
 
-    with CONSOLE.status("[green]Getting Tor Configuration..."):
+    with CONSOLE.status("[green]Loading Tor Configuration..."):
         control_port, socks_port = Tor.get_ports(9000)
         configuration = Tor.get_hidden_service_config()
 
@@ -195,7 +197,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
         webservice_host, webservice_port = configuration["webservice_host"], configuration["webservice_port"]
         webservice_host = webservice_host.replace("localhost", "127.0.0.1")
         without_ui = configuration["without_ui"]
-    CONSOLE.print("[green]~ Getting Tor Configuration... Done")
+    CONSOLE.print("[green]~ Loading Tor Configuration... Done")
 
     with CONSOLE.status("[green]Starting Tor Executable..."):
         tor_process, control_password = Tor.launch_tor_with_config(
