@@ -1009,8 +1009,16 @@ class Tor:
             [TOR_EXECUTABLE_PATH, "--hash-password", control_password],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        hashed_password, _ = tor_process.communicate()
-        hashed_password = hashed_password.strip().decode()
+        hashed_password_output, _ = tor_process.communicate()
+        hashed_password_output = hashed_password_output.decode()
+
+        hashed_password_match = re.search(r'16:[0-9A-Fa-f]{58}', hashed_password_output)
+
+        if not hashed_password_match:
+            CONSOLE.print(f"[red][Critical Error] TOR apparently couldn't generate a hashed password: `{hashed_password_output}`")
+            sys.exit(2)
+
+        hashed_password = hashed_password_match.group()
 
         temp_config_path = os.path.join(DATA_DIR_PATH, "torrc")
 
