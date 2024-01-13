@@ -102,14 +102,20 @@ atexit.register(atexit_delete_files)
 
 GNUPG_EXECUTABLE_PATH = GnuPG.get_path()
 
-if not os.path.isfile(GNUPG_EXECUTABLE_PATH) or True:
+if not os.path.isfile(GNUPG_EXECUTABLE_PATH):
     CONSOLE.print("[bold]~~~ Installing GnuPG ~~~", style=ORANGE_STYLE)
     if SYSTEM == "Linux":
         Linux.install_package("gpg")
     else:
-        with CONSOLE.status("[green]Trying to get the download links for GnuPG (This may take some time)..."):
-            download_link = GnuPG.get_download_link()
-        CONSOLE.print("[green]~ Trying to get the download links for GnuPG... Done")
+        with CONSOLE.status("[green]Trying to get the download link for GnuPG (This may take some time)..."):
+            while True:
+                try:
+                    download_link = GnuPG.get_download_link()
+                except:
+                    continue
+                else:
+                    break
+        CONSOLE.print("[green]~ Trying to get the download link for GnuPG... Done")
         
         if download_link is None:
             CONSOLE.print("[red][Critical Error] GnuPG could not be installed because no download link could be found, install it manually.")
@@ -150,6 +156,7 @@ if not os.path.isfile(GNUPG_EXECUTABLE_PATH) or True:
             SecureDelete.directory(TEMP_DIR_PATH)
         CONSOLE.print("[green]~ Cleaning up... Done")
     GNUPG_EXECUTABLE_PATH = GnuPG.get_path()
+    print()
 
 TOR_EXECUTABLE_PATH = {
     "Windows": os.path.join(DATA_DIR_PATH, "tor/tor/tor.exe")
@@ -158,7 +165,13 @@ TOR_EXECUTABLE_PATH = {
 if not os.path.isfile(TOR_EXECUTABLE_PATH):
     CONSOLE.print("[bold]~~~ Installing Tor ~~~", style=ORANGE_STYLE)
     with CONSOLE.status("[green]Trying to get the download links for Tor..."):
-        download_link, signature_link = Tor.get_download_link()
+        while True:
+            try:
+                download_link, signature_link = Tor.get_download_link()
+            except:
+                continue
+            else:
+                break
     CONSOLE.print("[green]~ Trying to get the download links for Tor... Done")
 
     if None in [download_link, signature_link]:
@@ -472,7 +485,7 @@ if not use_default_bridges:
                 else:
                     while True:
                         with CONSOLE.status("[green]Requesting Captcha from BridgeDB.."):
-                            captcha_image_bytes, captcha_challenge_value = BridgeDB.get_captcha_challenge(bridge_type, session)
+                            captcha_image_bytes, captcha_challenge_value = BridgeDB.get_captcha_challenge({"random": ""}.get(bridge_type, bridge_type), session)
                         
                         captcha_input = None
                         

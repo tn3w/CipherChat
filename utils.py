@@ -553,6 +553,7 @@ class GnuPG:
             gnupg_path = result.strip()
         except Exception as e:
             CONSOLE.log(f"[red][Error] Error when requesting pgp: '{e}'")
+            print()
 
         return gnupg_path
     
