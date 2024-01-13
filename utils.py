@@ -340,7 +340,7 @@ def download_file(url: str, dict_path: Optional[str] = None,
             )
             response.raise_for_status()
         except Exception as e:
-            CONSOLE.log(f"[red][Error] Error downloading the file: '{e}'")
+            CONSOLE.print(f"[red][Error] Error downloading the file: '{e}'")
             return None
 
         if response.status_code == 200:
@@ -499,12 +499,12 @@ class SecureDelete:
                         file.write(pattern)
             except Exception as e:
                 if not quite:
-                    CONSOLE.log(f"[red][Error] Error deleting the file '{file_path}': {e}")
+                    CONSOLE.print(f"[red][Error] Error deleting the file '{file_path}': {e}")
 
             try:
                 os.remove(file_path)
             except Exception as e:
-                CONSOLE.log(f"[red][Error] Error deleting the file '{file_path}': {e}")
+                CONSOLE.print(f"[red][Error] Error deleting the file '{file_path}': {e}")
     
     @staticmethod
     def directory(directory_path: str, quite: bool = False) -> None:
@@ -527,13 +527,13 @@ class SecureDelete:
                     shutil.rmtree(directory)
                 except Exception as e:
                     if not quite:
-                        CONSOLE.log(f"[red][Error] Error deleting directory '{directory}': {e}")
+                        CONSOLE.print(f"[red][Error] Error deleting directory '{directory}': {e}")
 
             try:
                 shutil.rmtree(directory_path)
             except Exception as e:
                 if not quite:
-                    CONSOLE.log(f"[red][Error] Error deleting directory '{directory_path}': {e}")
+                    CONSOLE.print(f"[red][Error] Error deleting directory '{directory_path}': {e}")
 
 class GnuPG:
     "All functions that have something to do with GnuPG"
@@ -552,7 +552,7 @@ class GnuPG:
             result = subprocess.check_output(command, shell=True, text=True)
             gnupg_path = result.strip()
         except Exception as e:
-            CONSOLE.log(f"[red][Error] Error when requesting pgp: '{e}'")
+            CONSOLE.print(f"[red][Error] Error when requesting pgp: '{e}'")
             print()
 
         return gnupg_path
@@ -631,20 +631,20 @@ class Linux:
 
         with CONSOLE.status("[green]Trying to get package manager..."):
             installation_command, update_command = Linux.get_package_manager()
-        CONSOLE.log(f"[green]~ Package Manager is `{installation_command.split(' ')[0]}`")
+        CONSOLE.print(f"[green]~ Package Manager is `{installation_command.split(' ')[0]}`")
 
         if not None in [installation_command, update_command]:
             try:
                 update_process = subprocess.Popen("sudo " + update_command, shell=True)
                 update_process.wait()
             except Exception as e:
-                CONSOLE.log(f"[red]Error using update Command while installing linux package '{package_name}': '{e}'")
+                CONSOLE.print(f"[red]Error using update Command while installing linux package '{package_name}': '{e}'")
 
             install_process = subprocess.Popen(f"sudo {installation_command} {package_name} -y", shell=True)
             install_process.wait()
 
         else:
-            CONSOLE.log("[red]No packet manager found for the current Linux system, you seem to use a distribution we don't know?")
+            CONSOLE.print("[red]No packet manager found for the current Linux system, you seem to use a distribution we don't know?")
             raise Exception("No package manager found!")
 
         return None
@@ -738,7 +738,7 @@ class Bridge:
             )
 
         if not os.path.isfile(file_path):
-            CONSOLE.log("[red][Error] Error when downloading bridges, use of default bridges")
+            CONSOLE.print("[red][Error] Error when downloading bridges, use of default bridges")
         else:
             with open(file_path, "r", encoding = "utf-8") as readable_file:
                 unprocessed_bridges = readable_file.read()
@@ -746,7 +746,7 @@ class Bridge:
             processed_bridges = [bridge.strip() for bridge in unprocessed_bridges.split("\n") if bridge.strip()]
 
             if {"vanilla": 800, "obfs4": 5000}.get(bridge_type, 20) >= len(processed_bridges):
-                CONSOLE.log("[red][Error] Error when validating the bridges, bridges were either not downloaded correctly or the bridge page was compromised, use of default bridges")
+                CONSOLE.print("[red][Error] Error when validating the bridges, bridges were either not downloaded correctly or the bridge page was compromised, use of default bridges")
             else:
                 with open(bridge_path, "w", encoding = "utf-8") as writeable_file:
                     json.dump(processed_bridges, writeable_file)
@@ -867,7 +867,7 @@ class Bridge:
 
         if use_default_bridges:
             return Bridge.choose_buildin(bridge_type)
-        
+                
         with CONSOLE.status("All bridges are loaded..."):
             if bridge_type == "random":
                 all_bridges = DEFAULT_BRIDGES["snowflake"] + DEFAULT_BRIDGES["meek_lite"]
@@ -877,9 +877,9 @@ class Bridge:
                             content = json.load(readable_file)
                         all_bridges.extend(content)
                     except Exception as e:
-                        bridge_type = file.replace(DATA_DIR_PATH, "").replace(".json", "")
+                        bridge_type = "obfs4" if "obfs4" in file else "vanilla" if "vanilla" in file else "webtunnel"
                         all_bridges.extend(DEFAULT_BRIDGES[bridge_type])
-                        CONSOLE.log(f"[red][Error] Error loading the bridge file: '{file}': '{e}'")
+                        CONSOLE.print(f"[red][Error] Error loading the bridge file: '{file}': '{e}'")
             else:
                 try:
                     bridge_file = os.path.join(DATA_DIR_PATH, bridge_type + ".json")
@@ -888,7 +888,7 @@ class Bridge:
                     all_bridges = content
                 except Exception as e:
                     all_bridges = DEFAULT_BRIDGES[bridge_type]
-                    CONSOLE.log(f"[red][Error] Error loading the bridge file: '{bridge_file}': '{e}'")
+                    CONSOLE.print(f"[red][Error] Error loading the bridge file: '{bridge_file}': '{e}'")
 
         with CONSOLE.status("[green]Bridges are selected (This may take some time)..."):
             bridges = Bridge.select_random(all_bridges, 6)

@@ -20,7 +20,7 @@ from getpass import getpass
 from rich.console import Console
 from rich.style import Style
 import hashlib
-from flask import Flask, abort
+from flask import Flask, abort, request
 from utils import clear_console, get_system_architecture, download_file, macos_get_installer_and_volume_path,\
                   get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
                   Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption, GnuPG,\
@@ -327,6 +327,19 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
         return PUBLIC_KEY
 
+    @app.errorhandler(404)
+    def not_found_errorhandler(_):
+        "Handles the not found error"
+
+        if request.path.startswith("/api/"):
+            return {"status": 404, "error": "The requested endpoint does not exist or has been restricted."}, 404
+
+        if without_ui:
+            return "", 404
+
+        return WebPage.render_template("404.html")
+
+
     app.run(host = webservice_host, port = webservice_port)
 
     sys.exit(0)
@@ -449,9 +462,20 @@ if not use_default_bridges:
                 if not use_bridge_db:
                     Bridge.download(bridge_type, session)
                 else:
+                    fail_counter = 0
                     while True:
+                        if fail_counter > 5:
+                            CONSOLE.print("\n[red][Critical Error] No connection to BridgeDB could be established, this may be due to the fact that Tor is not accessible")
+                            input("Enter: ")
+                            break
+
                         with CONSOLE.status("[green]Requesting Captcha from BridgeDB.."):
                             captcha_image_bytes, captcha_challenge_value = BridgeDB.get_captcha_challenge(bridge_type, session)
+
+                        if None in [captcha_image_bytes, captcha_challenge_value]:
+                            fail_counter += 1
+                            time.sleep(1)
+                            continue
 
                         while True:
                             print("-" * 20)
@@ -483,10 +507,21 @@ if not use_default_bridges:
                         bridge_path = os.path.join(DATA_DIR_PATH, specific_bridge_type + ".json")
                         Bridge.download(specific_bridge_type, session)
                 else:
+                    fail_counter = 0
                     while True:
+                        if fail_counter > 5:
+                            CONSOLE.print("\n[red][Critical Error] No connection to BridgeDB could be established, this may be due to the fact that Tor is not accessible")
+                            input("Enter: ")
+                            break
+
                         with CONSOLE.status("[green]Requesting Captcha from BridgeDB.."):
                             captcha_image_bytes, captcha_challenge_value = BridgeDB.get_captcha_challenge({"random": ""}.get(bridge_type, bridge_type), session)
-                        
+        	            
+                        if None in [captcha_image_bytes, captcha_challenge_value]:
+                            fail_counter += 1
+                            time.sleep(1)
+                            continue
+
                         captcha_input = None
                         
                         while True:
@@ -551,14 +586,17 @@ if os.path.isfile(PERSISTENT_STORAGE_CONF_PATH):
         with open(PERSISTENT_STORAGE_CONF_PATH, "r", encoding = "utf-8") as readable_file:
             persistent_storage_configuration = readable_file.read()
 
-        conf_use_persistent_storage, conf_store_user_data, encrypted_persistent_storage_key = persistent_storage_configuration.split("--")
+        try:
+            conf_use_persistent_storage, conf_store_user_data, encrypted_persistent_storage_key = persistent_storage_configuration.split("--")
+        except:
+            conf_use_persistent_storage, conf_store_user_data = persistent_storage_configuration.split("--")
         use_persistant_storage = {"true": True, "false": False}.get(conf_use_persistent_storage)
         store_user_data = {"true": True, "false": False}.get(conf_store_user_data)
 
         if not use_persistant_storage:
             store_user_data = False
 
-        while persistent_storage_password is None:
+        while persistent_storage_password is None and use_persistant_storage:
             clear_console()
             CONSOLE.print("[bold]~~~ Persistent Storage ~~~", style=ORANGE_STYLE)
             input_persistent_storage_password = getpass("Please enter your Persistent Storage password: ")
