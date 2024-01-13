@@ -337,7 +337,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
         if without_ui:
             return "", 404
 
-        return WebPage.render_template("404.html")
+        return WebPage.render_template("404.html"), 404
 
 
     app.run(host = webservice_host, port = webservice_port)
