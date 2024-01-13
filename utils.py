@@ -192,23 +192,27 @@ def show_image_in_console(image_bytes: bytes) -> None:
 
     print(ascii_img)
 
-def get_gnupg_path() -> str:
-    "Function to query the GnuPG path"
+def macos_get_installer_and_volume_path() -> Tuple[Optional[str], Optional[str]]:
+    "Function to automatically detect the macOS installer and the volume path"
 
-    gnupg_path = {
-        "Windows": r"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe",
-        "macOS": "/usr/local/bin/gpg"
-    }.get(SYSTEM, "/usr/bin/gpg")
+    installer_path = None
 
-    command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
+    mounted_volumes = [volume for volume in os.listdir("/Volumes") if not volume.startswith(".")]
+    if mounted_volumes:
+        volume_name = mounted_volumes[0]
+        volume_path = os.path.join("/Volumes", volume_name)
 
-    try:
-        result = subprocess.check_output(command, shell=True, text=True)
-        gnupg_path = result.strip()
-    except Exception as e:
-        CONSOLE.log(f"[red][Error] Error when requesting pgp: '{e}'")
-
-    return gnupg_path
+        for root, dirs, files in os.walk(volume_path):
+            for file in files:
+                if file.endswith(".app"):
+                    installer_path = os.path.join(root, file)
+                    break
+        else:
+            CONSOLE.print("[red][Error] Error detecting the macOS installer: No installer found in the mounted volume.")
+    else:
+        CONSOLE.print("[red][Error] Error recognizing macOS volume: No volume mounted.")
+    
+    return installer_path, volume_path
 
 def get_password_strength(password: str) -> int:
     """
@@ -530,6 +534,65 @@ class SecureDelete:
             except Exception as e:
                 if not quite:
                     CONSOLE.log(f"[red][Error] Error deleting directory '{directory_path}': {e}")
+
+class GnuPG:
+    "All functions that have something to do with GnuPG"
+
+    def get_path() -> str:
+        "Function to query the GnuPG path"
+
+        gnupg_path = {
+            "Windows": r"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe",
+            "macOS": "/usr/local/bin/gpg"
+        }.get(SYSTEM, "/usr/bin/gpg")
+
+        command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
+
+        try:
+            result = subprocess.check_output(command, shell=True, text=True)
+            gnupg_path = result.strip()
+        except Exception as e:
+            CONSOLE.log(f"[red][Error] Error when requesting pgp: '{e}'")
+
+        return gnupg_path
+    
+    def get_download_link(session: Optional[requests.Session] = None) -> Optional[str]:
+        "Request https://gnupg.org/download/ or https://gpgtools.org/ to get the latest download link"
+
+        if session is None:
+            session = Proxy.get_requests_session()
+        
+        url = {"Windows": "https://gnupg.org/download/"}.get(SYSTEM, "https://gpgtools.org/")
+
+        while True:
+            try:
+                response = session.get(
+                    url,
+                    headers={'User-Agent': random.choice(USER_AGENTS)},
+                    timeout = 5
+                )
+                response.raise_for_status()
+            except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
+                session = Proxy.get_requests_session()
+            else:
+                break
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        anchors = soup.find_all('a')
+
+        download_url = None
+        for anchor in anchors:
+            href = anchor.get('href')
+
+            if href:
+                if ("/ftp/gcrypt/binary/gnupg-w32-" in href and ".exe" in href and not ".sig" in href and SYSTEM == "Windows"):
+                    download_url = "https://gnupg.org" + href
+                    break
+                elif ("https://releases.gpgtools.com/GPG_Suite-" in href and ".dmg" in href and not ".sig" in href and SYSTEM == "macOS"):
+                    download_url = href
+                    break
+
+        return download_url
 
 class Linux:
     "Collection of functions that have something to do with Linux"

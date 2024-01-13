@@ -21,9 +21,9 @@ from rich.console import Console
 from rich.style import Style
 import hashlib
 from flask import Flask, abort
-from utils import clear_console, get_system_architecture, download_file, get_gnupg_path,\
+from utils import clear_console, get_system_architecture, download_file, macos_get_installer_and_volume_path,\
                   get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
-                  Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption,\
+                  Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption, GnuPG,\
                   Proxy, load_persistent_storage_file, dump_persistent_storage_data, shorten_text, atexit_terminate_tor
 from cons import DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
 
@@ -61,7 +61,6 @@ if "-k" in ARGUMENTS or "--killswitch" in ARGUMENTS:
     print("Good Bye. 💩")
 
     sys.exit(0)
-
 
 if "-h" in ARGUMENTS or "--help" in ARGUMENTS:
     clear_console()
@@ -101,15 +100,56 @@ def atexit_delete_files():
 
 atexit.register(atexit_delete_files)
 
-GNUPG_EXECUTABLE_PATH = get_gnupg_path()
+GNUPG_EXECUTABLE_PATH = GnuPG.get_path()
 
-if not os.path.isfile(GNUPG_EXECUTABLE_PATH):
+if not os.path.isfile(GNUPG_EXECUTABLE_PATH) or True:
+    CONSOLE.print("[bold]~~~ Installing GnuPG ~~~", style=ORANGE_STYLE)
     if SYSTEM == "Linux":
         Linux.install_package("gpg")
-        GNUPG_EXECUTABLE_PATH = get_gnupg_path()
     else:
-        CONSOLE.print("[red][Critical Error] Please install gpg on your system.")
-        sys.exit(2)
+        with CONSOLE.status("[green]Trying to get the download links for GnuPG (This may take some time)..."):
+            download_link = GnuPG.get_download_link()
+        CONSOLE.print("[green]~ Trying to get the download links for GnuPG... Done")
+        
+        if download_link is None:
+            CONSOLE.print("[red][Critical Error] GnuPG could not be installed because no download link could be found, install it manually.")
+            sys.exit(2)
+
+        if not os.path.isdir(TEMP_DIR_PATH):
+            os.mkdir(TEMP_DIR_PATH)
+        
+        gnupg_file_path = download_file(download_link, TEMP_DIR_PATH, "GnuPG")
+
+        if SYSTEM == "Windows":
+            process = subprocess.Popen([gnupg_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        else:
+            mount_command = ["hdiutil", "attach", gnupg_file_path]
+            subprocess.run(mount_command)
+
+            installer_path, volume_path = macos_get_installer_and_volume_path()
+            
+            process = subprocess.Popen(["open", installer_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        
+        with CONSOLE.status("[green]GnuPG installation wizard started, waiting for completion..."):
+            stdout, stderr = process.communicate()
+            exit_code = process.returncode
+        
+        if SYSTEM == "macOS":
+            unmount_command = ["hdiutil", "detach", volume_path]
+            subprocess.run(unmount_command)
+
+        if exit_code == 0:
+            CONSOLE.print("[green]~ GnuPG has been installed")
+        else:
+            installation_url = {"Windows": "https://gnupg.org/download/#binary"}.get(SYSTEM, "https://gpgtools.org/")
+            CONSOLE.print(f"[red][Critical Error] The GnuPG installation does not seem to have been successful. If errors occur, install GnuPG yourself at {installation_url}")
+            CONSOLE.print(f"[red] Exit Code: `{exit_code}`; Standard output: `{stdout.decode('utf-8')}`; Error output: `{stderr.decode('utf-8')}`")
+            sys.exit(2)
+        
+        with CONSOLE.status("[green]Cleaning up (this can take up to 2 minutes)..."):
+            SecureDelete.directory(TEMP_DIR_PATH)
+        CONSOLE.print("[green]~ Cleaning up... Done")
+    GNUPG_EXECUTABLE_PATH = GnuPG.get_path()
 
 TOR_EXECUTABLE_PATH = {
     "Windows": os.path.join(DATA_DIR_PATH, "tor/tor/tor.exe")
