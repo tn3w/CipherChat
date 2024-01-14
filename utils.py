@@ -245,6 +245,7 @@ class Proxy:
         """
         Selects random proxys that are online
         
+        :param proxys: A list of all existing proxies
         :param quantity: How many proxys should be selected
         """
         

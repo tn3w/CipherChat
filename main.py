@@ -185,35 +185,55 @@ if not os.path.isfile(TOR_EXECUTABLE_PATH):
     bundle_file_path = download_file(download_link, TEMP_DIR_PATH, "Tor Expert Bundle")
     bundle_signature_file_path = download_file(signature_link, TEMP_DIR_PATH, "Tor Expert Bundle Signature")
 
-    with CONSOLE.status("[green]Loading Tor Keys from keys.gnupg.net..."):
-        try:
+    skip_validating = False
+
+    try:
+        with CONSOLE.status("[green]Getting Proxy Session..."):
             os.environ['http_proxy'] = Proxy._select_random(HTTP_PROXIES)
             os.environ['https_proxy'] = Proxy._select_random(HTTPS_PROXIES)
+        with CONSOLE.status("[green]Loading Tor Keys from keyserver.ubuntu.com..."):
             subprocess.run(
-                [GNUPG_EXECUTABLE_PATH, "--keyserver", "keys.gnupg.net", "--recv-keys", "0xEF6E286DDA85EA2A4BA7DE684E2C6E8793298290"],
+                [GNUPG_EXECUTABLE_PATH, "--keyserver", "keyserver.ubuntu.com", "--recv-keys", "0xEF6E286DDA85EA2A4BA7DE684E2C6E8793298290"],
                 check=True
             )
-        except subprocess.CalledProcessError as e:
-            CONSOLE.log(f"[red]An Error occured: `{e}`")
-            CONSOLE.print("[red][Critical Error] Could not load Tor Keys from keys.gnupg.net")
-            sys.exit(2)
-    CONSOLE.print("[green]~ Loading Tor Keys from keys.gnupg.net... Done")
+    except subprocess.CalledProcessError as e:
+        CONSOLE.log(f"[red]An Error occured: `{e}`")
+        CONSOLE.print("[red][Critical Error] Could not load Tor Keys from keyserver.ubuntu.com")
 
-    with CONSOLE.status("[green]Validating Signature..."):
-        try:
-            result = subprocess.run(
-                [GNUPG_EXECUTABLE_PATH, "--verify", bundle_signature_file_path, bundle_file_path],
-                capture_output=True, check=True, text=True
-            )
-            if not result.returncode == 0:
-                CONSOLE.log(f"[red]An Error occured: `{result.stderr}`")
-                CONSOLE.print("[red][Critical Error] Signature is invalid.")
-                sys.exit(2)
-        except subprocess.CalledProcessError as e:
-            CONSOLE.log(f"[red]An Error occured: `{e}`")
-            CONSOLE.print("[red][Critical Error] Signature verification failed.")
+        do_continue = input("\nContinue? [y - yes; n - no] ")
+        if not do_continue.startswith("y"):
             sys.exit(2)
-    CONSOLE.print("[green]~ Validating Signature... Good Signature")
+        
+        skip_validating = True
+
+    if not skip_validating:
+        CONSOLE.print("[green]~ Loading Tor Keys from keyserver.ubuntu.com... Done")
+
+        with CONSOLE.status("[green]Validating Signature..."):
+            try:
+                result = subprocess.run(
+                    [GNUPG_EXECUTABLE_PATH, "--verify", bundle_signature_file_path, bundle_file_path],
+                    capture_output=True, check=True, text=True
+                )
+                if not result.returncode == 0:
+                    CONSOLE.log(f"[red]An Error occured: `{result.stderr}`")
+                    CONSOLE.print("[red][Critical Error] Signature is invalid.")
+
+                    do_continue = input("\nContinue? [y - yes; n - no] ")
+                    if not do_continue.startswith("y"):
+                        sys.exit(2)
+                    skip_validating = True
+            except subprocess.CalledProcessError as e:
+                CONSOLE.log(f"[red]An Error occured: `{e}`")
+                CONSOLE.print("[red][Critical Error] Signature verification failed.")
+
+                do_continue = input("\nContinue? [y - yes; n - no] ")
+                if not do_continue.startswith("y"):
+                    sys.exit(2)
+                skip_validating = True
+        
+        if not skip_validating:
+            CONSOLE.print("[green]~ Validating Signature... Good Signature")
 
     with CONSOLE.status("[green]Extracting the TOR archive..."):
         ARCHIV_PATH = os.path.join(DATA_DIR_PATH, "tor")
