@@ -300,6 +300,7 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
     ASYMMETRIC_ENCRYPTION = AsymmetricEncryption().generate_keys()
     PUBLIC_KEY, PRIVATE_KEY = ASYMMETRIC_ENCRYPTION.public_key, ASYMMETRIC_ENCRYPTION.private_key
+    CAPTCHA_SECRET = generate_random_string(32)
 
     app = Flask("CipherChat")
 
@@ -356,6 +357,43 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
         return {"status": 200, "error": None, 
                 "content": {"public_key": PUBLIC_KEY}}
+
+    @app.route("/api/get_captcha_login")
+    @app.route("/api/get_captcha_register")
+    def api_get_captcha():
+        "Generates a captcha for the client to verify that it is not a bot"
+
+        if not request.is_json:
+            return {"status": 400, "error": "The query cannot be answered as no data was provided.", "content": None}
+
+        encrypted_request_data = request.json().get("encrypted_data")
+        if encrypted_request_data is None:
+            return {"status": 400, "error": "The query cannot be answered as no data was provided.", "content": None}
+        
+        try:
+            request_data = ASYMMETRIC_ENCRYPTION.decrypt(encrypted_request_data)
+        except:
+            return {"status": 400, "error": "An error occurred while decrypting the given data.", "content": None}
+        try:
+            loaded_request_data = json.loads(request_data)
+        except:
+            return {"status": 400, "error": "An error occurred while loading the given encrypted data.", "content": None}
+        
+        is_login = "/api/get_captcha_login" == request.path
+        captcha_data = {
+            "type": "login" if is_login else "register"
+        }
+
+        user_name = loaded_request_data.get("user_name")
+        if user_name is None:
+            return {"status": 400, "error": "The user_name parameter was not specified.", "content": None}
+        if len(user_name) < 4 or len(user_name) > 20 or bool(re.match(r'^[a-zA-Z0-9_]+$', user_name)):
+            return {"status": 400, "error": "The user_name is deformed.", "content": None}
+        captcha_data["user_name"] = user_name
+
+        # other parameters: password; register: public_key and encrypted_private_key
+
+        return {"status": 400, "error": "🚧The requested route is still a construction site.🚧", "content": None}
 
     @app.errorhandler(404)
     def not_found_errorhandler(_):
@@ -846,3 +884,4 @@ while True:
             dump_persistent_storage_data(SAVED_HIDDEN_SERVICES_PATH, saved_hidden_services, persistent_storage_encryptor)
         except:
             pass
+re.match(r'^[a-zA-Z0-9_]+$', username)

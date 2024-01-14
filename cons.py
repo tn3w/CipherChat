@@ -7,11 +7,12 @@ GitHub: https://github.com/tn3w/CipherChat
 
 import os
 
-VERSION = 1.37
+VERSION = 1.38
 
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "data")
 TEMP_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "tmp")
+ASSETS_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "assets")
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

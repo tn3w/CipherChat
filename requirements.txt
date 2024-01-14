@@ -8,3 +8,4 @@ pysocks
 cryptography
 flask
 pillow
+captcha
