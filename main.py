@@ -24,7 +24,8 @@ from flask import Flask, abort, request
 from utils import clear_console, get_system_architecture, download_file, macos_get_installer_and_volume_path,\
                   get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
                   Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption, GnuPG,\
-                  Proxy, load_persistent_storage_file, dump_persistent_storage_data, shorten_text, atexit_terminate_tor
+                  Proxy, load_persistent_storage_file, dump_persistent_storage_data, atexit_terminate_tor, request_api_endpoint,\
+                  shorten_text
 from cons import DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
 
 if __name__ != "__main__":
@@ -285,12 +286,6 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.WARNING)
 
-    @app.route("/ping")
-    def ping():
-        "Used to check whether the server is online and which version it has"
-
-        return "Pong! CipherChat Chat Service " + str(VERSION)
-
     @app.route("/")
     def index():
         "Displays a user interface to the user when activated"
@@ -320,25 +315,39 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
 
         return WebPage.render_template("setup.html", None, os = operating_system, hidden_service_hostname = HOSTNAME,
                                        sha256_checksum = sha256_checksum)
+    
+    @app.route("/ping")
+    @app.route("/api/ping")
+    def ping():
+        "Used to check whether the server is online, which version it has and to get its public key"
+
+        if not request.path.startswith("/api/"):
+            if without_ui:
+                return abort(404)
+            
+            return "🎾Pong! CipherChat Hidden Service; Version: " + VERSION
+
+        return {"status": 200, "error": None, 
+                "content": {"type": "CipherChat Hidden Service", "version": VERSION, "public_key": PUBLIC_KEY}}
 
     @app.route("/api/public_key")
     def api_public_key():
         "Returns the public key for encrypted communication with the server"
 
-        return PUBLIC_KEY
+        return {"status": 200, "error": None, 
+                "content": {"public_key": PUBLIC_KEY}}
 
     @app.errorhandler(404)
     def not_found_errorhandler(_):
         "Handles the not found error"
 
         if request.path.startswith("/api/"):
-            return {"status": 404, "error": "The requested endpoint does not exist or has been restricted."}, 404
+            return {"status": 404, "error": "The requested endpoint does not exist or has been restricted.", "content": None}, 404
 
         if without_ui:
             return "", 404
 
         return WebPage.render_template("404.html"), 404
-
 
     app.run(host = webservice_host, port = webservice_port)
 
@@ -771,47 +780,27 @@ while True:
                         CONSOLE.print("\n[red][Error] You have not given a valid hidden service address")
                         input("Enter: ")
                     else:
-                        service_address = match.group(0)
                         with CONSOLE.status("[green]Getting Tor Session..."):
                             session = Tor.get_requests_session(control_port, control_password, socks_port)
+                        
+                        response_content = request_api_endpoint(service_address, "/api/ping", session = session)
 
-                        end_time = None
+                        if not response_content is None:
+                            service_version = response_content.get("version")
+                            if response_content.get("type") != "CipherChat Hidden Service":
+                                CONSOLE.print(f"\n[red][Error] This service does not appear to be a CipherChat Hidden Service.")
+                                input("Enter: ")
+                            elif service_version != VERSION:
+                                if isinstance(service_version, str) or isinstance(service_version, int):
+                                    service_version = shorten_text(str(service_version), 6)
+                                else:
+                                    service_version = "None"
 
-                        try:
-                            start_time = time.time()
-                            with CONSOLE.status("[green]Requesting Service Address..."):
-                                response = session.get("http://" + service_address + "/ping")
-                            end_time = time.time()
-                            CONSOLE.print("[green]Request took", end_time-start_time, "s")
-                            response.raise_for_status()
-                            response_content = response.content.decode("utf-8")
-                        except Exception as e:
-                            if end_time is None:
-                                end_time = time.time()
-                                CONSOLE.print("[green]Request took", end_time-start_time, "s")
-
-                            CONSOLE.print(f"\n[red][Error] Error while requesting the chat server: '{e}'")
-                            input("Enter: ")
-                        else:
-                            shorten_response_content = shorten_text(response_content, 50)
-
-                            if not "Pong! CipherChat Chat Service " in response_content:
-                                CONSOLE.print(f"\n[red][Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
+                                CONSOLE.print("\n[red][Error] This service does not have the same version as you" +
+                                        f"\nService Version: {service_version}\nYour Version: {VERSION}")
                                 input("Enter: ")
                             else:
-                                try:
-                                    service_version = float(response_content.replace("Pong! CipherChat Chat Service ", ""))
-                                except Exception as e:
-                                    CONSOLE.print(f"\n[red][Error] This service does not appear to be a CipherChat server. Server Response: '{shorten_response_content}'")
-                                    input("Enter: ")
-                                else:
-                                    if service_version != VERSION:
-                                        CONSOLE.print("\n[red][Error] This service does not have the same version as you" +
-                                            f"\nService Version: {service_version}\nYour Version: {VERSION}")
-                                        input("Enter: ")
-                                    else:
-                                        current_hidden_service = service_address
-                                        break
+                                current_hidden_service = service_address
 
             with CONSOLE.status("[green]Terminating Tor..."):
                 Tor.send_shutdown_signal(control_port, control_password)

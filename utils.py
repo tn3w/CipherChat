@@ -312,7 +312,8 @@ def download_file(url: str, dict_path: Optional[str] = None,
     """
 
     if session is None:
-        session = Proxy.get_requests_session()
+        with CONSOLE.status("[green]Getting Proxy Session..."):
+            session = Proxy.get_requests_session()
 
     if not return_as_bytes:
         if file_name is None:
@@ -379,7 +380,72 @@ def download_file(url: str, dict_path: Optional[str] = None,
     file.close()
     return save_path
 
-def is_password_pwned(password: str, session = Optional[requests.Session]) -> bool:
+def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
+                         data: Optional[Union[dict, list]] = None,
+                         session: Optional[requests.Session] = None,
+                         quite: bool = False) -> Optional[Union[dict, list]]:
+    """
+    This function is designed to make HTTP requests to a specified API endpoint on a given hostname.
+
+    :param hostname: The base hostname of the API.
+    :param endpoint: Optional parameter specifying the specific endpoint to request. Defaults to None.
+    :param data: Data to be sent to the endpoint. Defaults to None.
+    :param session: Optional parameter representing a pre-existing requests.Session to use for the request.
+                    If not provided, a new session will be created.
+    :param quite: Optional boolean parameter to suppress console output during the request. Defaults to False.
+    """
+    
+    if not isinstance(data, dict) and not isinstance(data, list):
+        data = None
+
+    if session is None:
+        with CONSOLE.status("[green]Getting Proxy Session..."):
+            session = Proxy.get_requests_session()
+    
+    url = "http://" + hostname + ("/" if endpoint is None else endpoint)
+    end_time = None
+
+    try:
+        start_time = time.time()
+
+        if not quite:
+            with CONSOLE.status("[green]Requesting Hidden Service..."):
+                response = session.get(url, json = data, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=30)
+        else:
+            response = session.get(url, json = data, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=30)
+        
+        end_time = time.time()
+
+        if not quite:
+            CONSOLE.print("[green]Request took", end_time-start_time, "s")
+        
+        response.raise_for_status()
+        response_json = response.json()
+    except Exception as e:
+        if not quite:
+            if end_time is None:
+                end_time = time.time()
+                CONSOLE.print("[green]Request took", end_time-start_time, "s")
+
+            CONSOLE.print(f"\n[red][Error] Error while requesting the chat server: '{e}'")
+            input("Enter: ")
+        return None
+
+    if not response_json.get("status") == 200:
+        if not quite:
+            CONSOLE.print(f"\n[red][Error] The Hidden Service has responded with an error code")
+            input("Enter: ")
+        return None
+    if response_json.get("content") is None:
+        if not quite:
+            CONSOLE.print(f"\n[red][Error] The hidden service has not sent any content")
+            input("Enter: ")
+        return None
+    
+    return response_json["content"]
+
+
+def is_password_pwned(password: str, session: Optional[requests.Session] = None) -> bool:
     """
     Ask pwnedpasswords.com if password is available in data leak
 
