@@ -1568,6 +1568,13 @@ class AsymmetricEncryption:
             self.priv_key = serialization.load_der_private_key(
                 b64decode(private_key.encode("utf-8")), password=None, backend=default_backend()
             )
+            
+            if self.publ_key is None:
+                self.publ_key = self.priv_key.public_key()
+                self.public_key = b64encode(self.publ_key.public_bytes(
+                    encoding=serialization.Encoding.DER,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo
+                )).decode("utf-8")
         else:
             self.priv_key = None
 
@@ -1873,3 +1880,90 @@ class Captcha:
             return False
 
         return bool(not (data != self.data or captcha_code != client_input))
+
+def generate_two_passwords(password: str) -> Tuple[str, str]:
+    """
+    Generate two hashed passwords from the given plain-text password.
+
+    :param password: The plain-text password to be hashed
+    """
+
+    hashed_password = Hashing(without_salt = True).hash(password, 64)
+
+    return hashed_password[:32], hashed_password[32:]
+
+class PasswordAuthentication:
+    "Implements a secure password authentication system using cryptographic techniques"
+
+    def __init__(self, pwdauth_secret: str, data: dict):
+        """
+        :param pwdauth_secret: A secret token known only to the server for password authentication
+        :param data: Additional data associated with the authentication process
+        """
+
+        self.pwdauth_secret = pwdauth_secret
+        self.data = data
+
+    @staticmethod
+    def _generate_service_salt(host_name: str, user_name: str) -> bytes:
+        """
+        Generate a service-specific salt using PBKDF2-HMAC.
+
+        :param host_name: Name of the host/service
+        :param user_name: Name of the user
+        """
+
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            iterations=100000,
+            backend=default_backend()
+        )
+        key = kdf.derive(host_name + user_name)
+        return key
+    
+    def server_generate_challenge(self, hashed_password: str) -> Tuple[str, str]:
+        """
+        Generate a challenge for the client during the server-side authentication process.
+
+        :param hashed_password: Hashed user password
+        """
+
+        verification_token = generate_random_string(64)
+        crypted_verification_token = SymmetricEncryption(hashed_password).encrypt(verification_token)
+
+        minimized_data = json.dumps(self.data, indent = None, separators = (',', ':'))
+        pwdauth_prove = verification_token + "//" + minimized_data
+
+        crypted_pwdauth_prove = SymmetricEncryption(self.pwdauth_secret).encrypt(pwdauth_prove)
+
+        return crypted_verification_token, crypted_pwdauth_prove
+    
+    def client_authorize_password(self, hashed_password: str, crypted_verification_token: str) -> str:
+        """
+        Authorize the password on the client side by decrypting the verification token.
+
+        :param hashed_password: Hashed user password
+        :param crypted_verification_token: Encrypted verification token
+        """
+
+        verification_token = SymmetricEncryption(hashed_password).decrypt(crypted_verification_token)
+        return verification_token
+
+    def server_verify_verification_token(self, verification_token: str, crypted_pwdauth_prove: str) -> bool:
+        """
+        Verify the received verification token and password authentication proof on the server side.
+
+        :param verification_token: Decrypted verification token
+        :param crypted_pwdauth_prove: Encrypted password authentication proof
+        """
+
+        try:
+            decrypted_pwdauth_prove = SymmetricEncryption(self.pwdauth_secret).decrypt(crypted_pwdauth_prove)
+
+            real_verification_token, minimized_data = decrypted_pwdauth_prove.split("//")
+            data = json.loads(minimized_data)
+        except:
+            return False
+
+        return bool(not (data != self.data or verification_token != real_verification_token))
