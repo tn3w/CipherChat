@@ -405,18 +405,6 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
             return "", 404
 
         return WebPage.render_template("404.html"), 404
-    
-    @app.errorhandler(500)
-    def internal_server_errorhandler(_):
-        "Handles the internal server error"
-
-        if request.path.startswith("/api/"):
-            return {"status": 500, "error": "An error occurred when requesting the client, if you know the source of the error, report it on GitHub: https://github.com/tn3w/CipherChat/security", "content": None}, 500
-
-        if without_ui:
-            return "Shh, you found a bug? Report it on GitHub at https://github.com/tn3w/CipherChat/security", 500
-
-        return WebPage.render_template("500.html"), 500
 
     app.run(host = webservice_host, port = webservice_port)
 
