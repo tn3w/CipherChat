@@ -263,23 +263,23 @@ class Proxy:
                 response = requests.get(url, proxies={"http": proxy, "https": proxy}, timeout=2)
                 speed = response.elapsed.total_seconds()
             except requests.RequestException:
-                speed = float('inf')
+                speed = None
             return proxy, speed
 
         proxys_with_speed = {}
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             future_to_proxy = {executor.submit(test_proxy, proxy): proxy for proxy in proxys}
 
             for future in concurrent.futures.as_completed(future_to_proxy):
-                proxy = future_to_proxy[future]
                 try:
                     result = future.result()
-                    proxys_with_speed[result[0]] = result[1]
-                except Exception as e:
-                    proxys_with_speed[proxy] = float('inf')
+                    if not result[1] is None:
+                        proxys_with_speed[result[0]] = result[1]
+                except:
+                    pass
 
-        top_proxys = list(sorted(proxys_with_speed.items(), key=lambda x: x[1]))
+        top_proxys = list(dict(sorted(proxys_with_speed.items(), key=lambda x: x[1])).keys())[:6]
         return top_proxys
 
     @staticmethod
