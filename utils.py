@@ -630,12 +630,13 @@ class GnuPG:
 
         while True:
             try:
-                response = session.get(
-                    url,
-                    headers={'User-Agent': random.choice(USER_AGENTS)},
-                    timeout = 5
-                )
-                response.raise_for_status()
+                with CONSOLE.status("[green]Trying to get the download link for GnuPG (This may take some time)..."):
+                    response = session.get(
+                        url,
+                        headers={'User-Agent': random.choice(USER_AGENTS)},
+                        timeout = 5
+                    )
+                    response.raise_for_status()
             except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
                 session = Proxy.get_requests_session()
             else:
@@ -1072,12 +1073,13 @@ class Tor:
         
         while True:
             try:
-                response = session.get(
-                    "http://www.torproject.org/download/tor/",
-                    headers={'User-Agent': random.choice(USER_AGENTS)},
-                    timeout = 5
-                )
-                response.raise_for_status()
+                with CONSOLE.status("[green]Trying to get the download links for Tor (This may take some time)..."):
+                    response = session.get(
+                        "http://www.torproject.org/download/tor/",
+                        headers={'User-Agent': random.choice(USER_AGENTS)},
+                        timeout = 5
+                    )
+                    response.raise_for_status()
             except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
                 session = Proxy.get_requests_session()
             else:
