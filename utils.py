@@ -13,6 +13,7 @@ import random
 import shutil
 import subprocess
 import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 from urllib.parse import urlparse
 import time
@@ -257,15 +258,26 @@ class Proxy:
         protocol = "https" if is_https_proxy else "http"
         url = f"{protocol}://www.ubuntu.com/robots.txt"
 
-        proxys_with_speed = {}
-
-        for proxy in proxys:
+        def test_proxy(proxy):
             try:
                 response = requests.get(url, proxies={"http": proxy, "https": proxy}, timeout=2)
                 speed = response.elapsed.total_seconds()
             except requests.RequestException:
                 speed = float('inf')
-            proxys_with_speed[proxy] = speed
+            return proxy, speed
+
+        proxys_with_speed = {}
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_proxy = {executor.submit(test_proxy, proxy): proxy for proxy in proxys}
+
+            for future in concurrent.futures.as_completed(future_to_proxy):
+                proxy = future_to_proxy[future]
+                try:
+                    result = future.result()
+                    proxys_with_speed[result[0]] = result[1]
+                except Exception as e:
+                    proxys_with_speed[proxy] = float('inf')
 
         top_proxys = list(sorted(proxys_with_speed.items(), key=lambda x: x[1]))
         return top_proxys
@@ -274,7 +286,7 @@ class Proxy:
     def get_proxy(https_proxy = False) -> str:
         global http_proxys
         global https_proxys
-        
+
         if http_proxys is None:
             with CONSOLE.status("[green]Speedtesting HTTP Proxys..."):
                 http_proxys = Proxy._speedtest_proxys(HTTP_PROXIES)
@@ -583,7 +595,7 @@ class SecureDelete:
 
         files, directories = SecureDelete.list_files_and_directories(directory_path)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=CPU_COUNT) as executor:
+        with ThreadPoolExecutor(max_workers=CPU_COUNT) as executor:
             file_futures = {executor.submit(SecureDelete.file, file, quite): file for file in files}
 
             concurrent.futures.wait(file_futures)
