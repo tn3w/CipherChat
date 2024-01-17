@@ -108,18 +108,14 @@ if not os.path.isfile(GNUPG_EXECUTABLE_PATH):
     if SYSTEM == "Linux":
         Linux.install_package("gpg")
     else:
-        repeat_counter = 0
-        while True:
-            try:
-                download_link = GnuPG.get_download_link()
-            except Exception as e:
-                repeat_counter += 1
-
-                if repeat_counter > 200:
-                    CONSOLE.print(f"[red][Critical Error] Error requesting download links for GnuPG, install it manually: `{e}`")
-                    sys.exit(2)
-            else:
-                break
+        with CONSOLE.status("[green]Trying to get the download link for GnuPG (This may take some time)..."):
+            while True:
+                try:
+                    download_link = GnuPG.get_download_link()
+                except:
+                    continue
+                else:
+                    break
         CONSOLE.print("[green]~ Trying to get the download link for GnuPG... Done")
         
         if download_link is None:
@@ -169,19 +165,14 @@ TOR_EXECUTABLE_PATH = {
 
 if not os.path.isfile(TOR_EXECUTABLE_PATH):
     CONSOLE.print("[bold]~~~ Installing Tor ~~~", style=ORANGE_STYLE)
-
-    repeat_counter = 0
-    while True:
-        try:
-            download_link, signature_link = Tor.get_download_link()
-        except Exception as e:
-            repeat_counter += 1
-
-            if repeat_counter > 200:
-                CONSOLE.print(f"[red][Critical Error] Error requesting download links for Tor, install it manually: `{e}`")
-                sys.exit(2)
-        else:
-            break
+    with CONSOLE.status("[green]Trying to get the download links for Tor..."):
+        while True:
+            try:
+                download_link, signature_link = Tor.get_download_link()
+            except:
+                continue
+            else:
+                break
     CONSOLE.print("[green]~ Trying to get the download links for Tor... Done")
 
     if None in [download_link, signature_link]:
@@ -197,9 +188,9 @@ if not os.path.isfile(TOR_EXECUTABLE_PATH):
     skip_validating = False
 
     try:
-        os.environ['http_proxy'] = Proxy.get_proxy()
-        os.environ['https_proxy'] = Proxy.get_proxy(True)
-
+        with CONSOLE.status("[green]Getting Proxy Session..."):
+            os.environ['http_proxy'] = Proxy._select_random(HTTP_PROXIES)
+            os.environ['https_proxy'] = Proxy._select_random(HTTPS_PROXIES)
         with CONSOLE.status("[green]Loading Tor Keys from keyserver.ubuntu.com..."):
             subprocess.run(
                 [GNUPG_EXECUTABLE_PATH, "--keyserver", "keyserver.ubuntu.com", "--recv-keys", "0xEF6E286DDA85EA2A4BA7DE684E2C6E8793298290"],
@@ -904,4 +895,3 @@ while True:
             dump_persistent_storage_data(SAVED_HIDDEN_SERVICES_PATH, saved_hidden_services, persistent_storage_encryptor)
         except:
             pass
-# re.match(r'^[a-zA-Z0-9_]+$', username)

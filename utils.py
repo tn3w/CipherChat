@@ -13,7 +13,6 @@ import random
 import shutil
 import subprocess
 import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 from urllib.parse import urlparse
 import time
@@ -240,72 +239,63 @@ def get_password_strength(password: str) -> int:
         strength = 100
     return round(strength)
 
-http_proxys = None
-https_proxys = None
-
 class Proxy:
     "Includes all functions that have something to do with proxies"
-    
-    @staticmethod    
-    def _speedtest_proxys(proxys: list, is_https_proxy=False) -> list:
-        """
-        Perform a speed test on a list of proxys and return a list of proxys sorted by their response times
-
-        :param proxys: List of proxies to test
-        :param is_https_proxy: True if testing HTTPS proxies, False for HTTP proxies (default is False)
-        """
-
-        protocol = "https" if is_https_proxy else "http"
-        url = f"{protocol}://www.ubuntu.com/robots.txt"
-
-        def test_proxy(proxy):
-            try:
-                response = requests.get(url, proxies={"http": proxy, "https": proxy}, timeout=4)
-                response.raise_for_status()
-            except requests.RequestException:
-                return False
-            return True
-
-        alive_proxys = []
-
-        with ThreadPoolExecutor(max_workers=40) as executor:
-            future_to_proxy = {executor.submit(test_proxy, proxy): proxy for proxy in proxys}
-
-            for future in concurrent.futures.as_completed(future_to_proxy):
-                try:
-                    result = future.result()
-                    if result[1]:
-                        alive_proxys.append(result[0])
-                except:
-                    pass
-
-        return alive_proxys
 
     @staticmethod
-    def get_proxy(https_proxy = False) -> str:
-        global http_proxys
-        global https_proxys
-
-        if http_proxys is None:
-            with CONSOLE.status("[green]Speedtesting HTTP Proxys..."):
-                http_proxys = Proxy._speedtest_proxys(HTTP_PROXIES)
+    def _select_random(proxys: list, quantity: int = 1) -> Union[list, str]:
+        """
+        Selects random proxys that are online
         
-        if https_proxys is None:
-            with CONSOLE.status("[green]Speedtesting HTTPS Proxys..."):
-                https_proxys = Proxy._speedtest_proxys(HTTPS_PROXIES)
-            
-        if https_proxy:
-            return secrets.choice(http_proxys)
-        return secrets.choice(https_proxys)
+        :param proxys: A list of all existing proxies
+        :param quantity: How many proxys should be selected
+        """
+        
+        selected_proxies = []
+        checked_proxies = []
+
+        while len(selected_proxies) < quantity:
+            if len(proxys) <= len(checked_proxies):
+                break
+
+            random_proxy = secrets.choice(proxys)
+            while random_proxy in checked_proxies:
+                random_proxy = secrets.choice(proxys)
+
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+
+                ip, port = random_proxy.split(":")
+                sock.connect((ip, int(port)))
+            except:
+                pass
+            else:
+                selected_proxies.append(random_proxy)
+
+            checked_proxies.append(random_proxy)
+
+        while len(selected_proxies) < quantity:
+            random_proxy = secrets.choice(proxys)
+            if not random_proxy in selected_proxies:
+                selected_proxies.append(random_proxy)
+
+        if quantity == 1:
+            return selected_proxies[0]
+
+        return selected_proxies
 
     @staticmethod
     def get_requests_session() -> requests.Session:
         "Returns a requests.session object with a selected proxy"
 
+        http_proxie = Proxy._select_random(HTTP_PROXIES)
+        https_proxie = Proxy._select_random(HTTPS_PROXIES)
+
         session = requests.Session()
         session.proxies = {
-            "http": Proxy.get_proxy(),
-            "https": Proxy.get_proxy(True)
+            "http": http_proxie,
+            "https:": https_proxie
         }
         return session
 
@@ -325,7 +315,8 @@ def download_file(url: str, dict_path: Optional[str] = None,
     """
 
     if session is None:
-        session = Proxy.get_requests_session()
+        with CONSOLE.status("[green]Getting Proxy Session..."):
+            session = Proxy.get_requests_session()
 
     if not return_as_bytes:
         if file_name is None:
@@ -411,7 +402,8 @@ def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
         data = None
 
     if session is None:
-        session = Proxy.get_requests_session()
+        with CONSOLE.status("[green]Getting Proxy Session..."):
+            session = Proxy.get_requests_session()
     
     url = "http://" + hostname + ("/" if endpoint is None else endpoint)
     end_time = None
@@ -594,7 +586,7 @@ class SecureDelete:
 
         files, directories = SecureDelete.list_files_and_directories(directory_path)
 
-        with ThreadPoolExecutor(max_workers=CPU_COUNT) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=CPU_COUNT) as executor:
             file_futures = {executor.submit(SecureDelete.file, file, quite): file for file in files}
 
             concurrent.futures.wait(file_futures)
@@ -644,13 +636,12 @@ class GnuPG:
 
         while True:
             try:
-                with CONSOLE.status("[green]Trying to get the download link for GnuPG (This may take some time)..."):
-                    response = session.get(
-                        url,
-                        headers={'User-Agent': random.choice(USER_AGENTS)},
-                        timeout = 5
-                    )
-                    response.raise_for_status()
+                response = session.get(
+                    url,
+                    headers={'User-Agent': random.choice(USER_AGENTS)},
+                    timeout = 5
+                )
+                response.raise_for_status()
             except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
                 session = Proxy.get_requests_session()
             else:
@@ -1087,13 +1078,12 @@ class Tor:
         
         while True:
             try:
-                with CONSOLE.status("[green]Trying to get the download links for Tor (This may take some time)..."):
-                    response = session.get(
-                        "http://www.torproject.org/download/tor/",
-                        headers={'User-Agent': random.choice(USER_AGENTS)},
-                        timeout = 5
-                    )
-                    response.raise_for_status()
+                response = session.get(
+                    "http://www.torproject.org/download/tor/",
+                    headers={'User-Agent': random.choice(USER_AGENTS)},
+                    timeout = 5
+                )
+                response.raise_for_status()
             except (requests.exceptions.ProxyError, requests.exceptions.ReadTimeout):
                 session = Proxy.get_requests_session()
             else:
