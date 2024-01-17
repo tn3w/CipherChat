@@ -239,63 +239,59 @@ def get_password_strength(password: str) -> int:
         strength = 100
     return round(strength)
 
+http_proxys = None
+https_proxys = None
+
 class Proxy:
     "Includes all functions that have something to do with proxies"
+    
+    @staticmethod    
+    def _speedtest_proxys(proxys: list, is_https_proxy=False) -> list:
+        """
+        Perform a speed test on a list of proxys and return a list of proxys sorted by their response times
+
+        :param proxys: List of proxies to test
+        :param is_https_proxy: True if testing HTTPS proxies, False for HTTP proxies (default is False)
+        """
+
+        protocol = "https" if is_https_proxy else "http"
+        url = f"{protocol}://www.ubuntu.com/robots.txt"
+
+        proxys_with_speed = {}
+
+        for proxy in proxys:
+            try:
+                response = requests.get(url, proxies={"http": proxy, "https": proxy}, timeout=2)
+                speed = response.elapsed.total_seconds()
+            except requests.RequestException:
+                speed = float('inf')
+            proxys_with_speed[proxy] = speed
+
+        top_proxys = list(sorted(proxys_with_speed.items(), key=lambda x: x[1]))
+        return top_proxys
 
     @staticmethod
-    def _select_random(proxys: list, quantity: int = 1) -> Union[list, str]:
-        """
-        Selects random proxys that are online
+    def get_proxy(https_proxy = False) -> str:
+        if http_proxys is None:
+            with CONSOLE.status("[green]Speedtesting HTTP Proxys..."):
+                http_proxys = Proxy._speedtest_proxys(HTTP_PROXIES)
         
-        :param proxys: A list of all existing proxies
-        :param quantity: How many proxys should be selected
-        """
-        
-        selected_proxies = []
-        checked_proxies = []
-
-        while len(selected_proxies) < quantity:
-            if len(proxys) <= len(checked_proxies):
-                break
-
-            random_proxy = secrets.choice(proxys)
-            while random_proxy in checked_proxies:
-                random_proxy = secrets.choice(proxys)
-
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
-
-                ip, port = random_proxy.split(":")
-                sock.connect((ip, int(port)))
-            except:
-                pass
-            else:
-                selected_proxies.append(random_proxy)
-
-            checked_proxies.append(random_proxy)
-
-        while len(selected_proxies) < quantity:
-            random_proxy = secrets.choice(proxys)
-            if not random_proxy in selected_proxies:
-                selected_proxies.append(random_proxy)
-
-        if quantity == 1:
-            return selected_proxies[0]
-
-        return selected_proxies
+        if https_proxys is None:
+            with CONSOLE.status("[green]Speedtesting HTTPS Proxys..."):
+                https_proxys = Proxy._speedtest_proxys(HTTPS_PROXIES)
+            
+        if https_proxy:
+            return secrets.choice(http_proxys)
+        return secrets.choice(https_proxys)
 
     @staticmethod
     def get_requests_session() -> requests.Session:
         "Returns a requests.session object with a selected proxy"
 
-        http_proxie = Proxy._select_random(HTTP_PROXIES)
-        https_proxie = Proxy._select_random(HTTPS_PROXIES)
-
         session = requests.Session()
         session.proxies = {
-            "http": http_proxie,
-            "https:": https_proxie
+            "http": Proxy.get_proxy(),
+            "https": Proxy.get_proxy(True)
         }
         return session
 
@@ -315,8 +311,7 @@ def download_file(url: str, dict_path: Optional[str] = None,
     """
 
     if session is None:
-        with CONSOLE.status("[green]Getting Proxy Session..."):
-            session = Proxy.get_requests_session()
+        session = Proxy.get_requests_session()
 
     if not return_as_bytes:
         if file_name is None:
@@ -402,8 +397,7 @@ def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
         data = None
 
     if session is None:
-        with CONSOLE.status("[green]Getting Proxy Session..."):
-            session = Proxy.get_requests_session()
+        session = Proxy.get_requests_session()
     
     url = "http://" + hostname + ("/" if endpoint is None else endpoint)
     end_time = None

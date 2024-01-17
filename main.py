@@ -188,9 +188,9 @@ if not os.path.isfile(TOR_EXECUTABLE_PATH):
     skip_validating = False
 
     try:
-        with CONSOLE.status("[green]Getting Proxy Session..."):
-            os.environ['http_proxy'] = Proxy._select_random(HTTP_PROXIES)
-            os.environ['https_proxy'] = Proxy._select_random(HTTPS_PROXIES)
+        os.environ['http_proxy'] = Proxy.get_proxy()
+        os.environ['https_proxy'] = Proxy.get_proxy(True)
+        
         with CONSOLE.status("[green]Loading Tor Keys from keyserver.ubuntu.com..."):
             subprocess.run(
                 [GNUPG_EXECUTABLE_PATH, "--keyserver", "keyserver.ubuntu.com", "--recv-keys", "0xEF6E286DDA85EA2A4BA7DE684E2C6E8793298290"],
