@@ -268,7 +268,7 @@ class Proxy:
 
         proxys_with_speed = {}
 
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=100) as executor:
             future_to_proxy = {executor.submit(test_proxy, proxy): proxy for proxy in proxys}
 
             for future in concurrent.futures.as_completed(future_to_proxy):
@@ -279,7 +279,7 @@ class Proxy:
                 except:
                     pass
 
-        top_proxys = list(dict(sorted(proxys_with_speed.items(), key=lambda x: x[1])).keys())[:6]
+        top_proxys = list(dict(sorted(proxys_with_speed.items(), key=lambda x: x[1])).keys())[:20]
         return top_proxys
 
     @staticmethod

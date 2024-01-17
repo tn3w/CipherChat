@@ -115,7 +115,7 @@ if not os.path.isfile(GNUPG_EXECUTABLE_PATH):
             except Exception as e:
                 repeat_counter += 1
 
-                if repeat_counter > 20:
+                if repeat_counter > 200:
                     CONSOLE.print(f"[red][Critical Error] Error requesting download links for GnuPG, install it manually: `{e}`")
                     sys.exit(2)
             else:
@@ -177,7 +177,7 @@ if not os.path.isfile(TOR_EXECUTABLE_PATH):
         except Exception as e:
             repeat_counter += 1
 
-            if repeat_counter > 20:
+            if repeat_counter > 200:
                 CONSOLE.print(f"[red][Critical Error] Error requesting download links for Tor, install it manually: `{e}`")
                 sys.exit(2)
         else:
@@ -904,4 +904,4 @@ while True:
             dump_persistent_storage_data(SAVED_HIDDEN_SERVICES_PATH, saved_hidden_services, persistent_storage_encryptor)
         except:
             pass
-re.match(r'^[a-zA-Z0-9_]+$', username)
+# re.match(r'^[a-zA-Z0-9_]+$', username)
