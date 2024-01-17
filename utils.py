@@ -272,6 +272,9 @@ class Proxy:
 
     @staticmethod
     def get_proxy(https_proxy = False) -> str:
+        global http_proxys
+        global https_proxys
+        
         if http_proxys is None:
             with CONSOLE.status("[green]Speedtesting HTTP Proxys..."):
                 http_proxys = Proxy._speedtest_proxys(HTTP_PROXIES)
