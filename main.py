@@ -10,7 +10,6 @@ import subprocess
 import tarfile
 import json
 import time
-import atexit
 import re
 import sys
 from sys import argv as ARGUMENTS
@@ -24,8 +23,8 @@ from flask import Flask, abort, request
 from utils import clear_console, get_system_architecture, download_file, macos_get_installer_and_volume_path,\
                   get_password_strength, is_password_pwned, generate_random_string, show_image_in_console,\
                   Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption, GnuPG,\
-                  Proxy, load_persistent_storage_file, dump_persistent_storage_data, atexit_terminate_tor, request_api_endpoint,\
-                  shorten_text, load_request_data, return_error, PasswordAuthentication, Captcha, craft_response
+                  Proxy, load_persistent_storage_file, dump_persistent_storage_data, request_api_endpoint,\
+                  shorten_text, load_request_data, return_error, PasswordAuthentication, Captcha, craft_response, AtExit
 from cons import DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
 
 if __name__ != "__main__":
@@ -83,23 +82,7 @@ if SYSTEM not in ["Windows", "Linux", "macOS"]:
 if not os.path.isdir(DATA_DIR_PATH):
     os.mkdir(DATA_DIR_PATH)
 
-def atexit_delete_files():
-    try:
-        with CONSOLE.status("[green]Cleaning up..."):
-            try:
-                if os.path.isdir(TEMP_DIR_PATH):
-                    SecureDelete.directory(TEMP_DIR_PATH)
-            except:
-                pass
-            try:
-                if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
-                    SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
-            except:
-                pass
-    except:
-        pass
-
-atexit.register(atexit_delete_files)
+AtExit.delete_files()
 
 GNUPG_EXECUTABLE_PATH = GnuPG.get_path()
 
@@ -276,17 +259,16 @@ if "-t" in ARGUMENTS or "--torhiddenservice" in ARGUMENTS:
         without_ui = configuration["without_ui"]
     CONSOLE.print("[green]~ Loading Tor Configuration... Done")
 
-    with CONSOLE.status("[green]Starting Tor Executable..."):
-        tor_process, control_password = Tor.launch_tor_with_config(
-            control_port, socks_port, [], True, control_password,
-            {
-                "hidden_service_dir": hidden_service_dir,
-                "hidden_service_port": f"80 {webservice_host}:{webservice_port}"
-            }
-        )
+    tor_process, control_password = Tor.launch_tor_with_config(
+        control_port, socks_port, [], True, control_password,
+        {
+            "hidden_service_dir": hidden_service_dir,
+            "hidden_service_port": f"80 {webservice_host}:{webservice_port}"
+        }
+    )
     CONSOLE.print("[green]~ Starting Tor Executable.. Done")
 
-    atexit.register(atexit_terminate_tor, control_port = control_port, control_password = control_password, tor_process = tor_process)
+    tor_atexit_id = AtExit.terminate_tor(control_port, control_password, tor_process)
 
     hostname_path = os.path.join(hidden_service_dir, "hostname")
 
@@ -520,16 +502,13 @@ if not use_default_bridges:
         CONSOLE.print("[bold]~~~ Downloading Tor Bridges ~~~", style=ORANGE_STYLE)
 
         bridges = Bridge.choose_buildin(bridge_type)
-
         control_port, socks_port = Tor.get_ports(4000)
-
-        with CONSOLE.status("[green]Starting Tor Executable..."):
-            tor_process, control_password = Tor.launch_tor_with_config(control_port, socks_port, bridges)
+        tor_process, control_password = Tor.launch_tor_with_config(control_port, socks_port, bridges)
 
         if tor_process is None:
             CONSOLE.print("[red][Error] Tor apparently could not be started properly")
         else:
-            atexit.register(atexit_terminate_tor, control_port = control_port, control_password = control_password, tor_process = tor_process)
+            tor_atexit_id = AtExit.terminate_tor(control_port, control_password, tor_process)
 
             if not os.path.isdir(TEMP_DIR_PATH):
                 os.mkdir(TEMP_DIR_PATH)
@@ -643,6 +622,7 @@ if not use_default_bridges:
                         if not is_file_missing:
                             break
 
+            AtExit.remove_atexit(tor_atexit_id)
             with CONSOLE.status("[green]Terminating Tor..."):
                 Tor.send_shutdown_signal(control_port, control_password)
                 time.sleep(1)
@@ -827,7 +807,7 @@ while True:
         if tor_process is None:
             CONSOLE.print("[red][Critical Error] Tor apparently could not be started properly")
         else:
-            atexit.register(atexit_terminate_tor, control_port = control_port, control_password = control_password, tor_process = tor_process)
+            tor_atexit_id = AtExit.terminate_tor(control_port, control_password, tor_process)
             while True:
                 clear_console()
                 CONSOLE.print("[bold]~~~ Hidden Service selection ~~~", style=ORANGE_STYLE)
@@ -870,7 +850,9 @@ while True:
                                 input("Enter: ")
                             else:
                                 current_hidden_service = service_address
+                                break
 
+            AtExit.remove_atexit(tor_atexit_id)
             with CONSOLE.status("[green]Terminating Tor..."):
                 Tor.send_shutdown_signal(control_port, control_password)
                 time.sleep(1)

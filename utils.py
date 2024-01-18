@@ -13,6 +13,7 @@ import random
 import shutil
 import subprocess
 import concurrent.futures
+import atexit
 import multiprocessing
 from urllib.parse import urlparse
 import time
@@ -141,11 +142,56 @@ def shorten_text(text: str, length: int) -> str:
         text = text[:length] + "..."
     return text
 
-def atexit_terminate_tor(control_port, control_password, tor_process):
-    with CONSOLE.status("[green]Terminating Tor..."):
-        Tor.send_shutdown_signal(control_port, control_password)
-        time.sleep(1)
-        tor_process.terminate()
+atexit_handlers = []
+all_atexit_handlers = []
+
+class AtExit:
+    def terminate_tor(control_port: int, control_password: str, tor_process) -> str:
+        atexit_id = generate_random_string(5)
+        
+        global all_atexit_handlers
+        while atexit_id in all_atexit_handlers:
+            atexit_id = generate_random_string(5)
+        all_atexit_handlers.append(atexit_id)
+
+        global atexit_handlers
+        atexit_handlers.append(atexit_id)
+
+        def atexit_func():
+            def kill_tor():
+                Tor.send_shutdown_signal(control_port, control_password)
+                time.sleep(1)
+                tor_process.terminate()
+
+            if atexit_id in atexit_handlers:
+                CONSOLE.print("\n[green]Terminating Tor...")
+                kill_tor()
+        
+        atexit.register(atexit_func)
+
+        return atexit_id
+    
+    def delete_files():
+        def atexit_func():
+            def remove_files():
+                try:
+                    if os.path.isdir(TEMP_DIR_PATH):
+                        SecureDelete.directory(TEMP_DIR_PATH)
+                    if os.path.isfile(os.path.join(DATA_DIR_PATH, "torrc")):
+                        SecureDelete.file(os.path.join(DATA_DIR_PATH, "torrc"))
+                except:
+                    pass
+            
+            CONSOLE.print("[green]Cleaning up...")
+            remove_files()
+
+        atexit.register(atexit_func)
+
+    def remove_atexit(atexit_id: str):
+        global atexit_handlers
+
+        if atexit_id in atexit_handlers:
+            atexit_handlers.remove(atexit_id)
 
 def generate_random_string(length: int, with_punctuation: bool = True,
                            with_letters: bool = True) -> str:
@@ -183,7 +229,7 @@ def show_image_in_console(image_bytes: bytes) -> None:
     new_width = get_console_columns()
     new_height = int(aspect_ratio * new_width * 0.55)
     img = img.resize((new_width, new_height))
-    img = img.convert('L')  # Convert to grayscale
+    img = img.convert('L')
 
     pixels = img.getdata()
     ascii_str = ''.join([ascii_chars[min(pixel // 25, len(ascii_chars) - 1)] for pixel in pixels])
@@ -243,42 +289,50 @@ class Proxy:
     "Includes all functions that have something to do with proxies"
 
     @staticmethod
+    def _is_proxy_online(proxy):
+        """
+        Checks if a proxy is online by attempting a connection.
+
+        :param proxy: Proxy in the format "ip:port"
+        :return: True if the proxy is online, False otherwise
+        """
+        
+        try:
+            ip, port = proxy.split(":")
+            with socket.create_connection((ip, int(port)), timeout=3):
+                return True
+        except (socket.timeout, socket.error):
+            return False
+
+    @staticmethod
     def _select_random(proxys: list, quantity: int = 1) -> Union[list, str]:
         """
-        Selects random proxys that are online
-        
+        Selects random proxys that are online using concurrent.futures.
+
         :param proxys: A list of all existing proxies
         :param quantity: How many proxys should be selected
         """
-        
+
         selected_proxies = []
-        checked_proxies = []
 
-        while len(selected_proxies) < quantity:
-            if len(proxys) <= len(checked_proxies):
-                break
+        with concurrent.futures.ThreadPoolExecutor(max_workers = 50) as executor:
+            futures = {executor.submit(Proxy._is_proxy_online, proxy): proxy for proxy in proxys}
 
-            random_proxy = secrets.choice(proxys)
-            while random_proxy in checked_proxies:
-                random_proxy = secrets.choice(proxys)
+            for future in concurrent.futures.as_completed(futures):
+                if len(selected_proxies) >= quantity:
+                    break
 
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(3)
+                proxy = futures[future]
+                try:
+                    if future.result():
+                        selected_proxies.append(proxy)
+                except Exception as e:
+                    pass
+        
+            for remaining_future in futures:
+                remaining_future.cancel()
 
-                ip, port = random_proxy.split(":")
-                sock.connect((ip, int(port)))
-            except:
-                pass
-            else:
-                selected_proxies.append(random_proxy)
-
-            checked_proxies.append(random_proxy)
-
-        while len(selected_proxies) < quantity:
-            random_proxy = secrets.choice(proxys)
-            if not random_proxy in selected_proxies:
-                selected_proxies.append(random_proxy)
+        selected_proxies = selected_proxies[:quantity]
 
         if quantity == 1:
             return selected_proxies[0]
@@ -1071,7 +1125,7 @@ class Tor:
     @staticmethod
     def get_download_link(session: Optional[requests.Session] = None
         ) -> Tuple[Optional[str], Optional[str]]:
-        "Request http://www.torproject.org to get the latest download links"
+        "Request https://www.torproject.org to get the latest download links"
 
         if session is None:
             session = Proxy.get_requests_session()
@@ -1079,7 +1133,7 @@ class Tor:
         while True:
             try:
                 response = session.get(
-                    "http://www.torproject.org/download/tor/",
+                    "https://www.torproject.org/download/tor/",
                     headers={'User-Agent': random.choice(USER_AGENTS)},
                     timeout = 5
                 )
@@ -1139,95 +1193,120 @@ class Tor:
         :param other_configuration: Other configurations for the torrc file (Optional)
         """
 
-        if control_password is None:
-            control_password = generate_random_string(16, with_punctuation=False)
-        
-        tor_process = subprocess.Popen(
-            [TOR_EXECUTABLE_PATH, "--hash-password", control_password],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        hashed_password_output, _ = tor_process.communicate()
-        hashed_password_output = hashed_password_output.decode()
+        fail_counter = 0
 
-        hashed_password_match = re.search(r'16:[0-9A-Fa-f]{58}', hashed_password_output)
+        with CONSOLE.status("[green]Starting Tor Executable..."):
+            while True:
+                if fail_counter >= 3:
+                    CONSOLE.print(f"[red][Critical Error] TOR was too incompetent to start, check your internet connection or try again.")
+                    sys.exit(2)
 
-        if not hashed_password_match:
-            CONSOLE.print(f"[red][Critical Error] TOR apparently couldn't generate a hashed password: `{hashed_password_output}`")
-            sys.exit(2)
+                if control_password is None:
+                    control_password = generate_random_string(16, with_punctuation=False)
+                
+                tor_process = subprocess.Popen(
+                    [TOR_EXECUTABLE_PATH, "--hash-password", control_password],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+                hashed_password_output, _ = tor_process.communicate()
+                hashed_password_output = hashed_password_output.decode()
 
-        hashed_password = hashed_password_match.group()
+                hashed_password_match = re.search(r'16:[0-9A-Fa-f]{58}', hashed_password_output)
 
-        temp_config_path = os.path.join(DATA_DIR_PATH, "torrc")
+                if not hashed_password_match:
+                    CONSOLE.print(f"[red][Error] TOR apparently couldn't generate a hashed password: `{hashed_password_output}`" + ("\n" if not fail_counter >= 2 else ""))
+                    
+                    fail_counter += 1
+                    continue
 
-        with open(temp_config_path, 'w+', encoding = 'utf-8') as temp_config:
-            temp_config.write(f"ControlPort {control_port}\n")
-            temp_config.write(f"HashedControlPassword {hashed_password}\n")
-            temp_config.write(f"SocksPort {socks_port}\n")
+                hashed_password = hashed_password_match.group()
 
-            if is_service:
-                if not os.path.isdir(TOR_DATA_DIR2_PATH):
-                    os.mkdir(TOR_DATA_DIR2_PATH)
-                temp_config.write(f"DataDirectory {TOR_DATA_DIR2_PATH}\n")
+                temp_config_path = os.path.join(DATA_DIR_PATH, "torrc")
 
-            if not len(bridges) == 0:
-                temp_config.write(f"UseBridges 1\nClientTransportPlugin obfs4 exec {LYREBIRD_EXECUTABLE_PATH}\nClientTransportPlugin snowflake exec {SNOWFLAKE_EXECUTABLE_PATH}\nClientTransportPlugin webtunnel exec {WEBTUNNEL_EXECUTABLE_PATH}\nClientTransportPlugin meek_lite exec {CONJURE_EXECUTABLE_PATH}")
-            for bridge in bridges:
-                temp_config.write(f"\nBridge {bridge}")
+                with open(temp_config_path, 'w+', encoding = 'utf-8') as temp_config:
+                    temp_config.write(f"ControlPort {control_port}\n")
+                    temp_config.write(f"HashedControlPassword {hashed_password}\n")
+                    temp_config.write(f"SocksPort {socks_port}\n")
 
-            if not other_configuration is None:
-                if not other_configuration.get("hidden_service_dir") is None:
-                    temp_config.write(f"HiddenServiceDir {other_configuration.get('hidden_service_dir')}\n")
-                if not other_configuration.get("hidden_service_port") is None:
-                    temp_config.write(f"HiddenServicePort {other_configuration.get('hidden_service_port')}\n")
+                    if is_service:
+                        if not os.path.isdir(TOR_DATA_DIR2_PATH):
+                            os.mkdir(TOR_DATA_DIR2_PATH)
+                        temp_config.write(f"DataDirectory {TOR_DATA_DIR2_PATH}\n")
 
-        tor_process = subprocess.Popen(
-            [TOR_EXECUTABLE_PATH, "-f", temp_config_path],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            close_fds=True
-        )
+                    if not len(bridges) == 0:
+                        temp_config.write(f"UseBridges 1\nClientTransportPlugin obfs4 exec {LYREBIRD_EXECUTABLE_PATH}\nClientTransportPlugin snowflake exec {SNOWFLAKE_EXECUTABLE_PATH}\nClientTransportPlugin webtunnel exec {WEBTUNNEL_EXECUTABLE_PATH}\nClientTransportPlugin meek_lite exec {CONJURE_EXECUTABLE_PATH}")
+                    for bridge in bridges:
+                        temp_config.write(f"\nBridge {bridge}")
 
-        warn_time = None
+                    if not other_configuration is None:
+                        if not other_configuration.get("hidden_service_dir") is None:
+                            temp_config.write(f"HiddenServiceDir {other_configuration.get('hidden_service_dir')}\n")
+                        if not other_configuration.get("hidden_service_port") is None:
+                            temp_config.write(f"HiddenServicePort {other_configuration.get('hidden_service_port')}\n")
 
-        while True:
-            line = tor_process.stdout.readline().decode().strip()
-            if line:
-                print(line)
-                if "[notice] Bootstrapped 100% (done): Done" in line:
-                    break
+                tor_process = subprocess.Popen(
+                    [TOR_EXECUTABLE_PATH, "-f", temp_config_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.PIPE,
+                    close_fds=True
+                )
 
-                if "Bootstrapped" in line:
-                    warn_time = None
+                warn_time = None
 
-                if warn_time is None:
-                    if "[err]" in line or "[warn]" in line:
-                        warn_time = int(time.time())
+                while True:
+                    line = tor_process.stdout.readline().decode().strip()
+                    if line:
+                        print(line)
+                        if "[notice] Bootstrapped 100% (done): Done" in line:
+                            break
 
-            if not warn_time is None:
-                if warn_time + 10 < int(time.time()):
-                    break
-        
-        if os.path.isfile(temp_config_path):
-            os.remove(temp_config_path)
-        
-        try:
-            with Controller.from_port(port=control_port) as controller:
-                controller.authenticate(password=control_password)
+                        if "Bootstrapped" in line:
+                            warn_time = None
 
-                start_time = time.time()
-                while not controller.is_alive():
-                    if time.time() - start_time > 20:
-                        raise TimeoutError("Timeout!")
+                        if warn_time is None:
+                            if "[err]" in line or "[warn]" in line:
+                                warn_time = int(time.time())
+
+                    if not warn_time is None:
+                        if warn_time + 10 < int(time.time()):
+                            break
+                
+                if os.path.isfile(temp_config_path):
+                    os.remove(temp_config_path)
+                
+                try:
+                    with Controller.from_port(port=control_port) as controller:
+                        controller.authenticate(password=control_password)
+
+                        start_time = time.time()
+                        while not controller.is_alive():
+                            if time.time() - start_time > 20:
+                                raise TimeoutError("Timeout!")
+                            time.sleep(1)
+                except Exception as e:
+                    CONSOLE.print(f"[red][Error] Error when checking whether TOR has started correctly: `{e}`" + ("\n" if not fail_counter >= 2 else ""))
+
+                    Tor.send_shutdown_signal(control_port, control_password)
                     time.sleep(1)
-        except Exception as e:
-            CONSOLE.print(f"[red][Error] Error when checking whether TOR has started correctly: `{e}`")
-            Tor.send_shutdown_signal(control_port, control_password)
-            time.sleep(1)
-            tor_process.terminate()
-            return None, None
+                    tor_process.terminate()
 
-        return tor_process, control_password
+                    fail_counter += 1
+                    continue
+                
+                session = Tor.get_requests_session(control_port, control_password, socks_port)
+                does_signal_work = Tor.test_signal(session)
+                if not does_signal_work:
+                    CONSOLE.print(f"[red][Error] TOR signal does not work properly!" + (" Retrying...\n" if not fail_counter >= 2 else ""))
+
+                    Tor.send_shutdown_signal(control_port, control_password)
+                    time.sleep(1)
+                    tor_process.terminate()
+
+                    fail_counter += 1
+                    continue
+
+                return tor_process, control_password
 
     @staticmethod
     def send_shutdown_signal(control_port: int, control_password: str) -> None:
@@ -1285,6 +1364,19 @@ class Tor:
         }
 
         return session
+
+    @staticmethod
+    def test_signal(session: requests.Session) -> bool:
+        try:
+            response = session.get(
+                "https://ubuntu.com/static/files/robots.txt",
+                headers={'User-Agent': random.choice(USER_AGENTS)},
+                timeout = 5
+            )
+            response.raise_for_status()
+        except:
+            return False
+        return True
 
     @staticmethod
     def get_ports(port_range: int = 5000) -> Tuple[int, int]:
