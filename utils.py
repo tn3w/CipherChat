@@ -1197,6 +1197,10 @@ class Tor:
 
         with CONSOLE.status("[green]Starting Tor Executable..."):
             while True:
+                if fail_counter != 0:
+                    with CONSOLE.status("[green]Waiting 10 seconds..."):
+                        time.sleep(10)
+
                 if fail_counter >= 3:
                     CONSOLE.print(f"[red][Critical Error] TOR was too incompetent to start, check your internet connection or try again.")
                     sys.exit(2)
