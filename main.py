@@ -877,3 +877,28 @@ while True:
             dump_persistent_storage_data(SAVED_HIDDEN_SERVICES_PATH, saved_hidden_services, persistent_storage_encryptor)
         except:
             pass
+
+    username = None
+
+    saved_username = saved_hidden_services[current_hidden_service].get("username")
+    if saved_username is not None:
+        if not len(saved_username) < 4 and not len(saved_username) > 20 and not bool(re.match(r'^[a-zA-Z0-9_]+$', saved_username)):
+            username = saved_username
+    
+    password = None
+
+    saved_password = saved_hidden_services[current_hidden_service].get("password")
+    if saved_password is not None:
+        if not len(saved_password) < 8 and not get_password_strength(saved_password) < 70:
+            password = saved_password
+
+    if None not in [username, password]:
+        bridges = Bridge.choose_bridges(use_default_bridges, bridge_type)
+        control_port, socks_port = Tor.get_ports(7000)
+
+        with CONSOLE.status("[green]Starting Tor Executable..."):
+            tor_process, control_password = Tor.launch_tor_with_config(control_port, socks_port, bridges)
+
+        tor_atexit_id = AtExit.terminate_tor(control_port, control_password, tor_process)
+            
+        request_api_endpoint(service_address, "/api/login") # Encrypted Request - Need Hidden Service Publ Key

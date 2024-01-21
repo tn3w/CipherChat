@@ -440,7 +440,8 @@ def download_file(url: str, dict_path: Optional[str] = None,
 def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
                          data: Optional[Union[dict, list]] = None,
                          session: Optional[requests.Session] = None,
-                         quite: bool = False) -> Optional[Union[dict, list]]:
+                         quite: bool = False, return_full_data: bool = False,
+                         operation_name: Optional[str] = None) -> Optional[Union[dict, list]]:
     """
     This function is designed to make HTTP requests to a specified API endpoint on a given hostname.
 
@@ -450,6 +451,8 @@ def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
     :param session: Optional parameter representing a pre-existing requests.Session to use for the request.
                     If not provided, a new session will be created.
     :param quite: Optional boolean parameter to suppress console output during the request. Defaults to False.
+    :param return_full_data: If True all data is returned. Defaults to False.
+    :param operation_name: Sets the name of the operation in the console (Optional)
     """
     
     if not isinstance(data, dict) and not isinstance(data, list):
@@ -466,7 +469,9 @@ def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
         start_time = time.time()
 
         if not quite:
-            with CONSOLE.status("[green]Requesting Hidden Service..."):
+            if operation_name is None:
+                operation_name = "Requesting Hidden Service..."
+            with CONSOLE.status(f"[green]{operation_name}..."):
                 response = session.get(url, json = data, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=30)
         else:
             response = session.get(url, json = data, headers={'User-Agent': random.choice(USER_AGENTS)}, timeout=30)
@@ -487,6 +492,9 @@ def request_api_endpoint(hostname: str, endpoint: Optional[str] = None,
             CONSOLE.print(f"\n[red][Error] Error while requesting the chat server: '{e}'")
             input("Enter: ")
         return None
+    
+    if return_full_data:
+        return response_json
 
     if not response_json.get("status") == 200:
         if not quite:
