@@ -3,6 +3,7 @@ rich
 requests
 distro
 stem
+pysocks
 psutil
 cryptography
 flask

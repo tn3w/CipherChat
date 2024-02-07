@@ -25,6 +25,7 @@ if os.path.isfile(REQUIREMENTS_PATH):
 
     for requirement in requirements:
         if requirement == "pillow": requirement = "PIL"
+        if requirement == "pysocks": requirement = "socks"
         try:
             __import__(requirement)
         except:
