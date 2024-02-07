@@ -408,11 +408,11 @@ def download_file(url: str, dict_path: Optional[str] = None,
             if not total_length is None:
                 if operation_name:
                     task = progress.add_task(
-                        f"[cyan]Downloading {operation_name}...",
+                        f"[green]Downloading {operation_name}...",
                         total=total_length
                     )
                 else:
-                    task = progress.add_task("[cyan]Downloading...", total=total_length)
+                    task = progress.add_task("[green]Downloading...", total=total_length)
             
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
