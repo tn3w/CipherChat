@@ -673,9 +673,12 @@ class GnuPG:
         "Function to query the GnuPG path"
 
         gnupg_path = {
-            "Windows": r"C:\\Program Files (x86)\\GNU\\GnuPG\\gpg.exe",
+            "Windows": r"C:\Program Files (x86)\GnuPG\bin",
             "macOS": "/usr/local/bin/gpg"
         }.get(SYSTEM, "/usr/bin/gpg")
+
+        if os.path.isfile(gnupg_path):
+            return gnupg_path
 
         command = {"Windows": "where gpg"}.get(SYSTEM, "which gpg")
 
