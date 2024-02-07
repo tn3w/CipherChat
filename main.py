@@ -245,10 +245,11 @@ if not os.path.isfile(TOR_EXECUTABLE_PATH):
             os.environ['http_proxy'] = Proxy._select_random(HTTP_PROXIES)
             os.environ['https_proxy'] = Proxy._select_random(HTTPS_PROXIES)
         with CONSOLE.status("[green]Loading Tor Keys from keyserver.ubuntu.com..."):
-            subprocess.run(
+            process = subprocess.Popen(
                 [GNUPG_EXECUTABLE_PATH, "--keyserver", "keyserver.ubuntu.com", "--recv-keys", "0xEF6E286DDA85EA2A4BA7DE684E2C6E8793298290"],
-                check=True
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
+            process.wait()
     except subprocess.CalledProcessError as e:
         CONSOLE.log(f"[red]An Error occured: `{e}`")
         CONSOLE.print("[red][Critical Error] Could not load Tor Keys from keyserver.ubuntu.com")
