@@ -673,7 +673,7 @@ class GnuPG:
         "Function to query the GnuPG path"
 
         gnupg_path = {
-            "Windows": r"C:\Program Files (x86)\GnuPG\bin",
+            "Windows": r"C:\Program Files (x86)\GnuPG\bin\gpg.exe",
             "macOS": "/usr/local/bin/gpg"
         }.get(SYSTEM, "/usr/bin/gpg")
 
