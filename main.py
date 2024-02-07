@@ -33,6 +33,7 @@ if os.path.isfile(REQUIREMENTS_PATH):
     if is_requirement_missing and not "--installed" in sys.argv:
         this_python = sys.executable
 
+        print("~ Automatic installation of all packages (this can take a few seconds) ... ")
         try:
             completed_process = subprocess.run(
                 [this_python, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH], 
@@ -42,7 +43,6 @@ if os.path.isfile(REQUIREMENTS_PATH):
             print(f"Error when automatically installing all requirements: {e}")
         else:
             if completed_process.returncode == 0:
-                print("Done")
                 os.execl(this_python, this_python, *sys.argv, "--installed")
             else:
                 if "externally-managed-environment" in completed_process.stderr:
@@ -52,6 +52,7 @@ if os.path.isfile(REQUIREMENTS_PATH):
                     if os.path.isdir(VENV_DIR_PATH):
                         os.rmdir(VENV_DIR_PATH)
 
+                    print("~ Installing a virtual environment ...")
                     try:
                         completed_process = subprocess.run(
                             [this_python, '-m', 'venv', VENV_DIR_PATH],
@@ -61,6 +62,7 @@ if os.path.isfile(REQUIREMENTS_PATH):
                         print(f"An error has occurred while creating the virtual environment: {e}")
                         sys.exit(2)
                     
+                    print("~ Installing requirements again (this can take a few seconds) ... ")
                     try:
                         completed_process = subprocess.run(
                             [VENV_DIR_PATH, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH], 
