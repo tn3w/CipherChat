@@ -30,48 +30,53 @@ if os.path.isfile(REQUIREMENTS_PATH):
         except:
             is_requirement_missing = True
     
-    if is_requirement_missing and not "--installed" in sys.argv:
+    if is_requirement_missing:
         this_python = sys.executable
 
         print("~ Automatic installation of all packages (this can take a few seconds) ... ")
         try:
-            completed_process = subprocess.run(
-                [this_python, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH], 
-                capture_output=True, text=True, check=True
+            install_process = subprocess.Popen(
+                [this_python, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
             )
+            stdout, stderr = install_process.communicate()
         except Exception as e:
             print(f"Error when automatically installing all requirements: {e}")
-        else:
-            if not completed_process.returncode == 0:
-                if "externally-managed-environment" in completed_process.stderr:
-                    if os.path.isfile(VENV_PYTHON_PATH):
-                        print(f"Please use the following command to start:\n`{VENV_PYTHON_PATH} {os.path.join(CURRENT_DIR_PATH, 'main.py')} {' '.join(sys.argv)} --installed`")
-                        sys.exit()
 
-                    if os.path.isdir(VENV_DIR_PATH):
-                        os.rmdir(VENV_DIR_PATH)
+        if install_process.returncode != 0\
+            and stderr is not None and not "--installed" in sys.argv:
 
-                    print("~ Installing a virtual environment ...")
-                    try:
-                        completed_process = subprocess.run(
-                            [this_python, '-m', 'venv', VENV_DIR_PATH],
-                            check=True
-                        )
-                    except Exception as e:
-                        print(f"An error has occurred while creating the virtual environment: {e}")
-                        sys.exit(2)
-                    
-                    print("~ Installing requirements again (this can take a few seconds) ... ")
-                    try:
-                        completed_process = subprocess.run(
-                            [VENV_DIR_PATH, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH], 
-                            capture_output=True, text=True, check=True
-                        )
-                    except Exception as e:
-                        print(f"Error when automatically installing all requirements: {e}")
-                    else:
-                        print(f"Please use the following command to start:\n`{VENV_PYTHON_PATH} {os.path.join(CURRENT_DIR_PATH, 'main.py')} {' '.join(sys.argv)} --installed`")
-                        sys.exit()
+            if "externally-managed-environment" in stderr:
+                if os.path.isfile(VENV_PYTHON_PATH):
+                    print(f"\nPlease use the following command to start:\n`{VENV_PYTHON_PATH} {os.path.join(CURRENT_DIR_PATH, 'main.py')} {' '.join(sys.argv)} --installed`")
+                    sys.exit()
+
+                if os.path.isdir(VENV_DIR_PATH):
+                    os.rmdir(VENV_DIR_PATH)
+
+                print("~ Installing a virtual environment ...")
+                try:
+                    install_process = subprocess.Popen(
+                        [this_python, '-m', 'venv', VENV_DIR_PATH],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
+                    )
+                    install_process.wait()
+                except Exception as e:
+                    print(f"An error has occurred while creating the virtual environment: {e}")
+                    sys.exit(2)
+                
+                print("~ Installing requirements again (this can take a few seconds) ... ")
+                try:
+                    install_process = subprocess.Popen(
+                        [VENV_DIR_PATH, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
+                    )
+                    install_process.wait()
+                except Exception as e:
+                    print(f"Error when automatically installing all requirements: {e}")
+
+                print(f"\nPlease use the following command to start:\n`{VENV_PYTHON_PATH} {os.path.join(CURRENT_DIR_PATH, 'main.py')} {' '.join(sys.argv)} --installed`")
+                sys.exit()
 
 import tarfile
 import json
