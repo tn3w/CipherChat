@@ -6,12 +6,74 @@ GitHub: https://github.com/tn3w/CipherChat
 """
 
 import os
+import sys
 import subprocess
+from cons import CURRENT_DIR_PATH, DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
+
+if __name__ != "__main__":
+    sys.exit(1)
+
+REQUIREMENTS_PATH = os.path.join(CURRENT_DIR_PATH, "requirements.txt")
+VENV_DIR_PATH = os.path.join(CURRENT_DIR_PATH, ".venv")
+VENV_PYTHON_PATH = os.path.join(VENV_DIR_PATH, "bin", "python")
+
+if os.path.isfile(REQUIREMENTS_PATH):
+    with open(REQUIREMENTS_PATH, "r", encoding="utf-8") as f:
+        requirements = [line.strip() for line in f if line.strip()]
+
+    is_requirement_missing = False
+
+    for requirement in requirements:
+        if requirement == "pillow": requirement = "PIL"
+        try:
+            __import__(requirement)
+        except:
+            is_requirement_missing = True
+    
+    if is_requirement_missing:
+        this_python = sys.executable
+
+        try:
+            completed_process = subprocess.run(
+                [this_python, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH], 
+                capture_output=True, text=True, check=True
+            )
+        except Exception as e:
+            print(f"Error when automatically installing all requirements: {e}")
+        else:
+            if completed_process.returncode == 0:
+                os.execl(this_python, this_python, *sys.argv)
+            else:
+                if "externally-managed-environment" in completed_process.stderr:
+                    if os.path.isfile(VENV_PYTHON_PATH):
+                        os.execl(VENV_PYTHON_PATH, VENV_PYTHON_PATH, *sys.argv)
+
+                    if os.path.isdir(VENV_DIR_PATH):
+                        os.rmdir(VENV_DIR_PATH)
+
+                    try:
+                        completed_process = subprocess.run(
+                            [this_python, '-m', 'venv', VENV_DIR_PATH],
+                            check=True
+                        )
+                    except Exception as e:
+                        print(f"An error has occurred while creating the virtual environment: {e}")
+                        sys.exit(2)
+                    
+                    try:
+                        completed_process = subprocess.run(
+                            [VENV_DIR_PATH, '-m', 'pip', 'install', '-r', REQUIREMENTS_PATH], 
+                            capture_output=True, text=True, check=True
+                        )
+                    except Exception as e:
+                        print(f"Error when automatically installing all requirements: {e}")
+                    else:
+                        os.execl(VENV_DIR_PATH, VENV_DIR_PATH, *sys.argv)
+
 import tarfile
 import json
 import time
 import re
-import sys
 from sys import argv as ARGUMENTS
 import logging
 from typing import Optional
@@ -25,10 +87,6 @@ from utils import clear_console, get_system_architecture, download_file, macos_g
                   Tor, Bridge, Linux, SecureDelete, AsymmetricEncryption, WebPage, BridgeDB, SymmetricEncryption, GnuPG,\
                   Proxy, load_persistent_storage_file, dump_persistent_storage_data, request_api_endpoint,\
                   shorten_text, load_request_data, return_error, PasswordAuthentication, Captcha, craft_response, AtExit
-from cons import DATA_DIR_PATH, TEMP_DIR_PATH, VERSION, BRIDGE_FILES, HTTP_PROXIES, HTTPS_PROXIES
-
-if __name__ != "__main__":
-    sys.exit(1)
 
 if "-v" in ARGUMENTS or "--version" in ARGUMENTS:
     print("CipherChat Version:", VERSION, "\n")
