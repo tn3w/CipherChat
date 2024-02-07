@@ -30,7 +30,7 @@ if os.path.isfile(REQUIREMENTS_PATH):
         except:
             is_requirement_missing = True
     
-    if is_requirement_missing:
+    if is_requirement_missing and not "--installed" in sys.argv:
         this_python = sys.executable
 
         try:
@@ -42,11 +42,12 @@ if os.path.isfile(REQUIREMENTS_PATH):
             print(f"Error when automatically installing all requirements: {e}")
         else:
             if completed_process.returncode == 0:
-                os.execl(this_python, this_python, *sys.argv)
+                print("Done")
+                os.execl(this_python, this_python, *sys.argv, "--installed")
             else:
                 if "externally-managed-environment" in completed_process.stderr:
                     if os.path.isfile(VENV_PYTHON_PATH):
-                        os.execl(VENV_PYTHON_PATH, VENV_PYTHON_PATH, *sys.argv)
+                        os.execl(VENV_PYTHON_PATH, VENV_PYTHON_PATH, *sys.argv, "--installed")
 
                     if os.path.isdir(VENV_DIR_PATH):
                         os.rmdir(VENV_DIR_PATH)
@@ -68,7 +69,7 @@ if os.path.isfile(REQUIREMENTS_PATH):
                     except Exception as e:
                         print(f"Error when automatically installing all requirements: {e}")
                     else:
-                        os.execl(VENV_DIR_PATH, VENV_DIR_PATH, *sys.argv)
+                        os.execl(VENV_DIR_PATH, VENV_DIR_PATH, *sys.argv, "--installed")
 
 import tarfile
 import json
