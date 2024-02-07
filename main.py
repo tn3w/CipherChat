@@ -46,6 +46,10 @@ if os.path.isfile(REQUIREMENTS_PATH):
         if install_process.returncode != 0\
             and stderr is not None and not "--installed" in sys.argv:
 
+            if "No module named pip" in stderr:
+                print("\n[Error during automatic installation] Pip is not installed, use `sudo apt install python3-pip`")
+                sys.exit()
+
             if "externally-managed-environment" in stderr:
                 if os.path.isfile(VENV_PYTHON_PATH):
                     print(f"\nPlease use the following command to start:\n`{VENV_PYTHON_PATH} {os.path.join(CURRENT_DIR_PATH, 'main.py')} {' '.join(sys.argv)} --installed`")
